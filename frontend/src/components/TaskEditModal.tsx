@@ -122,7 +122,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onUpdate }: TaskE
 
                     <div>
                       <label htmlFor="motivation" className="block text-sm font-medium text-gray-700">
-                        :heart: : {formData.motivation}
+                        モチベーション: {formData.motivation}
                       </label>
                       <input
                         type="range"
