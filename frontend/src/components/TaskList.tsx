@@ -191,7 +191,7 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                     onClick={() => onTaskSelect(task.id)}
                     className={`hover:bg-gray-50 ${selectedTaskId === task.id ? 'bg-blue-50' : ''}`}
                   >
-                    <td className="whitespace-nowrap py-2 pl-2 pr-2 text-sm font-medium text-gray-900">
+                    <td className="whitespace-normal py-2 pl-2 pr-2 text-sm font-medium text-gray-900">
                       {task.title}
                     </td>
                     <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-500">

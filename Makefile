@@ -9,7 +9,7 @@ dev:
 backend:
 	@echo "Starting backend server..."
 	cd backend && \
-	. venv/bin/activate && \
+	. .venv/bin/activate && \
 	uvicorn app.main:app --reload --host 127.0.0.1 --log-level debug
 
 # フロントエンドの起動
