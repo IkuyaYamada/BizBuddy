@@ -26,8 +26,8 @@ setup: setup-backend setup-frontend
 setup-backend:
 	@echo "Setting up backend..."
 	cd backend && \
-	python -m venv venv && \
-	. venv/bin/activate && \
+	python -m venv .venv && \
+	. .venv/bin/activate && \
 	pip install -r requirements.txt
 
 # フロントエンドのセットアップ

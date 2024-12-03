@@ -97,6 +97,10 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
 
     try {
       // 作業ログを作成
+      const now = new Date()
+      // JSTのオフセットを追加（UTC+9）
+      now.setHours(now.getHours() + 9)
+      
       const workLogResponse = await fetch(`http://localhost:8000/tasks/${taskId}/work-logs/`, {
         method: 'POST',
         headers: {
@@ -104,7 +108,7 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
         },
         body: JSON.stringify({
           description: `[メモより] ${memo.content}`,
-          started_at: new Date().toISOString(),
+          started_at: now.toISOString(),
         }),
       })
 
@@ -139,15 +143,23 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <form onSubmit={handleSubmit} className="mb-8">
         <div className="mb-4">
           <textarea
             value={newMemo}
             onChange={(e) => setNewMemo(e.target.value)}
             onKeyDown={handleKeyDown}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onInput={(e) => {
+              const textarea = e.target as HTMLTextAreaElement;
+              textarea.style.height = 'auto';
+              textarea.style.height = textarea.scrollHeight + 'px';
+            }}
+            style={{
+              minHeight: '4.5rem',
+              maxHeight: '20rem'
+            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             placeholder="メモを入力..."
           />
         </div>

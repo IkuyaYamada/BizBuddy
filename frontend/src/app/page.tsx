@@ -11,6 +11,8 @@ import { marked } from 'marked'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import MemoList from '../components/MemoList'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import Timer from '../components/Timer'
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -88,115 +90,182 @@ export default function Home() {
     }
   }
 
+  const handleTaskSelect = (taskId: number) => {
+    setSelectedTaskId(selectedTaskId === taskId ? null : taskId);
+  };
+
   return (
     <main className="min-h-screen bg-gray-100">
-      <div className="py-10">
+      <div className="py-10 px-4">
         <header>
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h1 className="text-3xl font-bold leading-tight tracking-tight text-gray-900">
-              BizBuddy
-            </h1>
+          <div className="mx-auto">
+            <div className="flex justify-between items-center">
+              <h1 className="text-3xl font-bold leading-tight tracking-tight text-gray-900">
+                BizBuddy
+              </h1>
+              <Timer />
+            </div>
           </div>
         </header>
         <main>
-          <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+          <div className="mx-auto">
             <Tabs>
               <Tab.Panel>
-                <div className="px-4 py-8 sm:px-0">
-                  <div className="flex justify-end mb-4">
-                    <button
-                      onClick={() => setIsTaskFormOpen(true)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                      新規タスク作成
-                    </button>
-                  </div>
-                  <div className="flex gap-6">
-                    <div className="w-3/5">
-                      <h2 className="text-lg font-medium text-gray-900 mb-4">タスク一覧</h2>
-                      <TaskList 
-                        tasks={tasks} 
-                        onUpdate={fetchTasks}
-                        onTaskSelect={setSelectedTaskId}
-                        selectedTaskId={selectedTaskId}
-                      />
-                    </div>
-                    <div className="w-2/5">
-                      <h2 className="text-lg font-medium text-gray-900 mb-4">作業ログ</h2>
-                      <div className="bg-white shadow rounded-lg p-6">
-                        {selectedTaskId ? (
-                          <div>
-                            {tasks.find(task => task.id === selectedTaskId)?.work_logs?.map(log => (
-                              <div key={log.id} className="mb-6 last:mb-0 border-b border-gray-200 last:border-0 pb-4 last:pb-0">
-                                <div className="flex justify-between items-start mb-2">
-                                  <div className="text-sm text-gray-500">
-                                    {format(new Date(log.started_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
-                                    {log.ended_at && (
-                                      <>
-                                        <span className="mx-1">→</span>
-                                        {format(new Date(log.ended_at), 'HH:mm', { locale: ja })}
-                                      </>
-                                    )}
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => handleEditWorkLog(selectedTaskId, log)}
-                                      className="text-xs text-indigo-600 hover:text-indigo-900"
-                                    >
-                                      編集
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteWorkLog(selectedTaskId, log.id)}
-                                      className="text-xs text-red-600 hover:text-red-900"
-                                    >
-                                      削除
-                                    </button>
-                                  </div>
-                                </div>
-                                <div 
-                                  className="prose prose-sm max-w-none"
-                                  dangerouslySetInnerHTML={{ 
-                                    __html: marked(log.description.replace(/\n/g, '  \n')) 
-                                  }}
-                                />
-                              </div>
-                            ))}
-                            <button
-                              onClick={() => handleAddWorkLog(selectedTaskId)}
-                              className="mt-4 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                              作業を記録
-                            </button>
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-center">タスクを選択してください</p>
-                        )}
+                <div className="py-6">
+                  <PanelGroup direction="horizontal">
+                    <Panel defaultSize={40} minSize={30}>
+                      <div>
+                        <div className="flex justify-between items-center mb-4">
+                          <h2 className="text-lg font-medium text-gray-900">タスク一覧</h2>
+                          <button
+                            onClick={() => setIsTaskFormOpen(true)}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            新規タスク作成
+                          </button>
+                        </div>
+                        <TaskList 
+                          tasks={tasks} 
+                          onUpdate={fetchTasks}
+                          onTaskSelect={handleTaskSelect}
+                          selectedTaskId={selectedTaskId}
+                        />
                       </div>
-                    </div>
-                  </div>
+                    </Panel>
+
+                    <PanelResizeHandle className="w-2 hover:bg-gray-200 transition-colors duration-200" />
+
+                    <Panel defaultSize={60} minSize={30}>
+                      <div>
+                        <div className="flex justify-between items-center mb-4">
+                          <h2 className="text-lg font-medium text-gray-900">作業ログ</h2>
+                        </div>
+                        <div className="bg-white shadow rounded-lg p-6">
+                          {selectedTaskId ? (
+                            <div>
+                              <div className="mb-6 border-b border-gray-200 pb-6">
+                                <form onSubmit={(e) => {
+                                  e.preventDefault();
+                                  const form = e.target as HTMLFormElement;
+                                  const description = (form.elements.namedItem('description') as HTMLTextAreaElement).value;
+                                  if (description.trim()) {
+                                    handleSaveWorkLog({
+                                      description,
+                                      started_at: new Date().toISOString()
+                                    });
+                                    form.reset();
+                                    const textarea = form.elements.namedItem('description') as HTMLTextAreaElement;
+                                    textarea.style.height = 'auto';
+                                    textarea.style.height = textarea.scrollHeight + 'px';
+                                  }
+                                }}>
+                                  <textarea
+                                    name="description"
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm resize-none mb-3"
+                                    placeholder="作業内容を入力..."
+                                    onKeyDown={(e) => {
+                                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                                        e.preventDefault();
+                                        const form = e.currentTarget.form;
+                                        if (form && e.currentTarget.value.trim()) {
+                                          handleSaveWorkLog({
+                                            description: e.currentTarget.value,
+                                            started_at: new Date().toISOString()
+                                          });
+                                          form.reset();
+                                          e.currentTarget.style.height = 'auto';
+                                          e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                                        }
+                                      }
+                                    }}
+                                    onInput={(e) => {
+                                      const textarea = e.target as HTMLTextAreaElement;
+                                      textarea.style.height = 'auto';
+                                      textarea.style.height = textarea.scrollHeight + 'px';
+                                    }}
+                                    style={{
+                                      minHeight: '4.5rem',
+                                      maxHeight: '20rem'
+                                    }}
+                                  />
+                                  <div className="flex justify-end">
+                                    <button
+                                      type="submit"
+                                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    >
+                                      記録
+                                    </button>
+                                  </div>
+                                </form>
+                              </div>
+                              {tasks.find(task => task.id === selectedTaskId)?.work_logs
+                                ?.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
+                                ?.map(log => (
+                                <div key={log.id} className="mb-6 last:mb-0 border-b border-gray-200 last:border-0 pb-4 last:pb-0">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="text-sm text-gray-500">
+                                      {format(new Date(log.started_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
+                                      {log.ended_at && (
+                                        <>
+                                          <span className="mx-1">→</span>
+                                          {format(new Date(log.ended_at), 'HH:mm', { locale: ja })}
+                                        </>
+                                      )}
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <button
+                                        onClick={() => handleEditWorkLog(selectedTaskId, log)}
+                                        className="text-xs text-indigo-600 hover:text-indigo-900"
+                                      >
+                                        編集
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteWorkLog(selectedTaskId, log.id)}
+                                        className="text-xs text-red-600 hover:text-red-900"
+                                      >
+                                        削除
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div 
+                                    className="prose prose-sm max-w-none"
+                                    dangerouslySetInnerHTML={{ 
+                                      __html: marked(log.description.replace(/\n/g, '  \n')) 
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 text-center">タスクを選択してください</p>
+                          )}
+                        </div>
+                      </div>
+                    </Panel>
+                  </PanelGroup>
                 </div>
               </Tab.Panel>
               <Tab.Panel>
-                <div className="px-4 py-8 sm:px-0">
+                <div className="py-8">
                   <MemoList tasks={tasks} onUpdate={fetchTasks} />
                 </div>
               </Tab.Panel>
               <Tab.Panel>
-                <div className="px-4 py-8 sm:px-0">
+                <div className="py-8">
                   <div className="rounded-lg border-4 border-dashed border-gray-200 p-4">
                     <p className="text-center text-gray-500">時計機能（開発中）</p>
                   </div>
                 </div>
               </Tab.Panel>
               <Tab.Panel>
-                <div className="px-4 py-8 sm:px-0">
+                <div className="py-8">
                   <div className="rounded-lg border-4 border-dashed border-gray-200 p-4">
                     <p className="text-center text-gray-500">マインドマップ機能（開発中）</p>
                   </div>
                 </div>
               </Tab.Panel>
               <Tab.Panel>
-                <div className="px-4 py-8 sm:px-0">
+                <div className="py-8">
                   <div className="rounded-lg border-4 border-dashed border-gray-200 p-4">
                     <p className="text-center text-gray-500">プロトタイプ機能（開発中）</p>
                   </div>

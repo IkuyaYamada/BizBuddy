@@ -9,8 +9,6 @@ import { useForm } from 'react-hook-form'
 
 interface WorkLogFormData {
   description: string
-  started_at: string
-  ended_at?: string
 }
 
 interface WorkLogModalProps {
@@ -24,25 +22,22 @@ interface WorkLogModalProps {
 export default function WorkLogModal({ isOpen, onClose, onSave, taskId, workLog }: WorkLogModalProps) {
   const { register, handleSubmit, reset, setValue } = useForm<WorkLogFormData>({
     defaultValues: {
-      description: workLog?.description || '',
-      started_at: workLog?.started_at ? format(new Date(workLog.started_at), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm")
+      description: workLog?.description || ''
     }
   })
 
   useEffect(() => {
     if (workLog) {
       setValue('description', workLog.description)
-      setValue('started_at', format(new Date(workLog.started_at), "yyyy-MM-dd'T'HH:mm"))
     } else {
       setValue('description', '')
-      setValue('started_at', format(new Date(), "yyyy-MM-dd'T'HH:mm"))
     }
   }, [workLog, setValue])
 
   const onSubmit = async (data: WorkLogFormData) => {
     await onSave({
       description: data.description,
-      started_at: new Date(data.started_at).toISOString()
+      started_at: workLog ? new Date(workLog.started_at).toISOString() : new Date().toISOString()
     })
     onClose()
     reset()
@@ -95,34 +90,10 @@ export default function WorkLogModal({ isOpen, onClose, onSave, taskId, workLog 
                       <textarea
                         id="description"
                         {...register('description')}
-                        rows={3}
+                        rows={8}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3"
                         required
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="started_at" className="block text-sm font-medium text-gray-700 mb-2">
-                        開始時間
-                      </label>
-                      <input
-                        type="datetime-local"
-                        id="started_at"
-                        {...register('started_at')}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="ended_at" className="block text-sm font-medium text-gray-700 mb-2">
-                        終了時間（任意）
-                      </label>
-                      <input
-                        type="datetime-local"
-                        id="ended_at"
-                        {...register('ended_at')}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                        autoFocus
                       />
                     </div>
                   </div>

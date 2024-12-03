@@ -90,7 +90,12 @@ export default function TaskEditModal({ task, isOpen, onClose, onUpdate }: TaskE
               leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
               <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}>
                   <div className="space-y-4">
                     <div>
                       <label htmlFor="title" className="block text-sm font-medium text-gray-700">
@@ -114,8 +119,16 @@ export default function TaskEditModal({ task, isOpen, onClose, onUpdate }: TaskE
                         id="description"
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        rows={3}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        onInput={(e) => {
+                          const textarea = e.target as HTMLTextAreaElement;
+                          textarea.style.height = 'auto';
+                          textarea.style.height = textarea.scrollHeight + 'px';
+                        }}
+                        style={{
+                          minHeight: '4.5rem',
+                          maxHeight: '20rem'
+                        }}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm resize-none"
                         required
                       />
                     </div>

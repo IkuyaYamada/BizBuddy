@@ -17,7 +17,7 @@ export default function Tabs({ children }: { children: React.ReactNode }) {
   const [selectedTab, setSelectedTab] = useState(0)
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+    <div className="w-full">
       <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
         <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
           {tabs.map((tab) => (
