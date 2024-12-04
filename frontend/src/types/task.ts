@@ -1,5 +1,6 @@
 export interface WorkLog {
   id: number
+  task_id: number
   description: string
   started_at: string
   ended_at?: string

@@ -34,13 +34,23 @@ export default function WorkLogModal({ isOpen, onClose, onSave, taskId, workLog 
     }
   }, [workLog, setValue])
 
+  const handleClose = () => {
+    reset()
+    onClose()
+  }
+
   const onSubmit = async (data: WorkLogFormData) => {
+    const now = new Date();
+    // JSTのオフセットを考慮して日時を調整
+    const jstOffset = 9 * 60; // JSTは+9時間
+    now.setMinutes(now.getMinutes() + jstOffset);
+    
     await onSave({
       description: data.description,
-      started_at: workLog ? new Date(workLog.started_at).toISOString() : new Date().toISOString()
+      started_at: workLog ? workLog.started_at : now.toISOString(),
+      task_id: workLog ? workLog.task_id : taskId
     })
-    onClose()
-    reset()
+    handleClose()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -51,7 +61,7 @@ export default function WorkLogModal({ isOpen, onClose, onSave, taskId, workLog 
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-10" onClose={onClose}>
+      <Dialog as="div" className="relative z-10" onClose={handleClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -108,7 +118,7 @@ export default function WorkLogModal({ isOpen, onClose, onSave, taskId, workLog 
                     <button
                       type="button"
                       className="mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:col-start-1 sm:mt-0 sm:text-sm"
-                      onClick={onClose}
+                      onClick={handleClose}
                     >
                       キャンセル
                     </button>

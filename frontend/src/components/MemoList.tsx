@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { marked } from 'marked'
@@ -23,24 +23,30 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
   const [newMemo, setNewMemo] = useState('')
   const [selectedMemoId, setSelectedMemoId] = useState<number | null>(null)
   const [isTaskSelectOpen, setIsTaskSelectOpen] = useState(false)
+  const [editingMemoId, setEditingMemoId] = useState<number | null>(null)
+  const [editingContent, setEditingContent] = useState('')
+  const [deletingMemoId, setDeletingMemoId] = useState<number | null>(null)
+
+  const memoInputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    memoInputRef.current?.focus()
+  }, [])
+
+  const fetchMemos = async () => {
+    const response = await fetch('http://localhost:8000/memos/')
+    const data = await response.json()
+    const sortedMemos = data.sort((a: Memo, b: Memo) => {
+      const aDate = new Date(a.created_at).getTime()
+      const bDate = new Date(b.created_at).getTime()
+      return bDate - aDate
+    })
+    setMemos(sortedMemos)
+  }
 
   useEffect(() => {
     fetchMemos()
-  }, [tasks])
-
-  const fetchMemos = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/memos/')
-      const data = await response.json()
-      console.log('Fetched memos:', data)
-      // 新しい順にソート
-      setMemos(data.sort((a: Memo, b: Memo) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      ))
-    } catch (error) {
-      console.error('Error fetching memos:', error)
-    }
-  }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,23 +67,62 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
       if (response.ok) {
         setNewMemo('')
         fetchMemos()
+        onUpdate()
       }
     } catch (error) {
       console.error('Error creating memo:', error)
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const startEdit = (memo: Memo) => {
+    setEditingMemoId(memo.id)
+    setEditingContent(memo.content)
+  }
+
+  const handleUpdate = async (memoId: number) => {
+    if (!editingContent.trim()) return
+
+    try {
+      const memo = memos.find(m => m.id === memoId)
+      if (!memo) return
+
+      const response = await fetch(`http://localhost:8000/memos/${memoId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: editingContent,
+          task_ids: memo.task_ids,
+        }),
+      })
+
+      if (response.ok) {
+        setEditingMemoId(null)
+        setEditingContent('')
+        fetchMemos()
+        onUpdate()
+      }
+    } catch (error) {
+      console.error('Error updating memo:', error)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent, memoId?: number) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      handleSubmit(e as any)
+      e.preventDefault()
+      if (memoId) {
+        handleUpdate(memoId)
+      } else {
+        handleSubmit(e)
+      }
+    } else if (e.key === 'Escape' && memoId) {
+      setEditingMemoId(null)
+      setEditingContent('')
     }
   }
 
   const handleDelete = async (memoId: number) => {
-    if (!confirm('このメモを削除してもよろしいですか？')) {
-      return
-    }
-
     try {
       const response = await fetch(`http://localhost:8000/memos/${memoId}`, {
         method: 'DELETE',
@@ -85,6 +130,8 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
 
       if (response.ok) {
         fetchMemos()
+        onUpdate()
+        setDeletingMemoId(null)
       }
     } catch (error) {
       console.error('Error deleting memo:', error)
@@ -147,9 +194,10 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
       <form onSubmit={handleSubmit} className="mb-8">
         <div className="mb-4">
           <textarea
+            ref={memoInputRef}
             value={newMemo}
             onChange={(e) => setNewMemo(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={(e) => handleKeyDown(e)}
             onInput={(e) => {
               const textarea = e.target as HTMLTextAreaElement;
               textarea.style.height = 'auto';
@@ -179,29 +227,85 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
                 {format(new Date(memo.created_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
               </div>
               <div className="flex space-x-2">
-                <button
-                  onClick={() => {
-                    setSelectedMemoId(memo.id)
-                    setIsTaskSelectOpen(true)
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-900"
-                >
-                  タスクに追加
-                </button>
-                <button
-                  onClick={() => handleDelete(memo.id)}
-                  className="text-xs text-red-600 hover:text-red-900"
-                >
-                  削除
-                </button>
+                {editingMemoId === memo.id ? (
+                  <>
+                    <button
+                      onClick={() => handleUpdate(memo.id)}
+                      className="text-xs text-blue-600 hover:text-blue-900"
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingMemoId(null)
+                        setEditingContent('')
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      キャンセル
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => startEdit(memo)}
+                      className="text-xs text-blue-600 hover:text-blue-900"
+                    >
+                      編集
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedMemoId(memo.id)
+                        setIsTaskSelectOpen(true)
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-900"
+                    >
+                      タスクに追加
+                    </button>
+                    {deletingMemoId === memo.id ? (
+                      <button
+                        onClick={() => handleDelete(memo.id)}
+                        className="text-xs text-red-600 hover:text-red-900 font-medium"
+                      >
+                        削除する
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setDeletingMemoId(memo.id)}
+                        className="text-xs text-red-600 hover:text-red-900"
+                      >
+                        削除
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
-            <div 
-              className="prose prose-sm max-w-none mb-3"
-              dangerouslySetInnerHTML={{ 
-                __html: marked(memo.content.replace(/\n/g, '  \n')) 
-              }}
-            />
+            {editingMemoId === memo.id ? (
+              <textarea
+                value={editingContent}
+                onChange={(e) => setEditingContent(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, memo.id)}
+                onInput={(e) => {
+                  const textarea = e.target as HTMLTextAreaElement;
+                  textarea.style.height = 'auto';
+                  textarea.style.height = textarea.scrollHeight + 'px';
+                }}
+                autoFocus
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                style={{
+                  minHeight: '4.5rem',
+                  maxHeight: '20rem'
+                }}
+              />
+            ) : (
+              <div 
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ 
+                  __html: marked(memo.content.replace(/\n/g, '  \n')) 
+                }}
+              />
+            )}
             <div style={{ display: 'none' }}>
               Debug: {JSON.stringify({
                 memo_id: memo.id,

@@ -4,8 +4,8 @@ export default function Timer() {
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false)
   const [isCountdownRunning, setIsCountdownRunning] = useState(false)
   const [stopwatchTime, setStopwatchTime] = useState(0)
-  const [countdownTime, setCountdownTime] = useState(0)
-  const [inputMinutes, setInputMinutes] = useState('')
+  const [countdownTime, setCountdownTime] = useState(15 * 60)
+  const [inputMinutes, setInputMinutes] = useState('15')
 
   useEffect(() => {
     let stopwatchInterval: NodeJS.Timeout | null = null

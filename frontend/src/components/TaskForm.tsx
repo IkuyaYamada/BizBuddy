@@ -179,6 +179,8 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
                     >
                       <option value="未着手">未着手</option>
                       <option value="進行中">進行中</option>
+                      <option value="casual">casual</option>
+                      <option value="backlog">backlog</option>
                       <option value="完了">完了</option>
                     </select>
                   </div>

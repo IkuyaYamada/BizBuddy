@@ -49,9 +49,20 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
   // ステータスの優先順位を定義
   const statusOrder = {
     '進行中': 0,
-    '未着手': 1,
-    '完了': 2
+    'casual': 1,
+    '未着手': 2,
+    'backlog': 3,
+    '完了': 4
   }
+
+  // ステータスの表示名マッピング
+  const statusDisplay: { [key: string]: string } = {
+    '進行中': '進行中',
+    'casual': 'casual',
+    '未着手': '未着手',
+    'backlog': 'backlog',
+    '完了': '完了'
+  };
 
   // タスクを並び替え
   const sortedTasks = [...tasks].sort((a, b) => {
@@ -149,7 +160,8 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
     setEditingWorkLog({
       description: '',
       started_at: now.toISOString(),
-      id: 0
+      id: 0,
+      task_id: taskId
     })
     setIsWorkLogModalOpen(true)
   }
@@ -207,7 +219,7 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {sortedTasks.map((task) => (
+                {sortedTasks.map((task, index) => (
                   <React.Fragment key={task.id}>
                     <tr
                       onClick={() => onTaskSelect(task.id)}
@@ -228,6 +240,11 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                       `}
                     >
                       <td className="whitespace-normal py-2 pl-2 pr-2 text-sm font-medium text-gray-900">
+                        {index < 9 && (
+                          <span className="inline-flex items-center justify-center w-4 mr-2 text-xs font-medium text-gray-400">
+                            {index + 1}
+                          </span>
+                        )}
                         {task.title}
                       </td>
                       <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
@@ -286,6 +303,8 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                         >
                           <option value="未着手">未着手</option>
                           <option value="進行中">進行中</option>
+                          <option value="casual">casual</option>
+                          <option value="backlog">backlog</option>
                           <option value="完了">完了</option>
                         </select>
                       </td>

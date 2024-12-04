@@ -54,7 +54,7 @@ class WorkLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, ForeignKey("tasks.id"))
     description = Column(String)
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=get_jst_now)
     ended_at = Column(DateTime, nullable=True)
     
     task = relationship("Task", back_populates="work_logs")
