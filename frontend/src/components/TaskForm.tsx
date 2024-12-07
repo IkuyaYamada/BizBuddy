@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form'
 import { addDays, format } from 'date-fns'
 import { Dialog, Transition } from '@headlessui/react'
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 
 interface TaskFormProps {
   isOpen: boolean
@@ -34,6 +34,18 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
 
   const motivationValue = watch('motivation')
   const priorityValue = watch('priority')
+
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        titleInputRef.current?.focus();
+      }, 0);
+    } else {
+      reset();
+    }
+  }, [isOpen, reset]);
 
   const onSubmit = async (data: TaskFormData) => {
     try {
@@ -107,7 +119,8 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
                     </label>
                     <input
                       type="text"
-                      {...register('title', { required: 'タイトルは必須です' })}
+                      {...register('title', { required: true })}
+                      ref={titleInputRef}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                     />
                     {errors.title && (
@@ -177,11 +190,11 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
                       {...register('status')}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                     >
-                      <option value="未着手">未着手</option>
-                      <option value="進行中">進行中</option>
+                      <option value="未着手">todo</option>
+                      <option value="進行中">in progress</option>
                       <option value="casual">casual</option>
                       <option value="backlog">backlog</option>
-                      <option value="完了">完了</option>
+                      <option value="完了">done</option>
                     </select>
                   </div>
 

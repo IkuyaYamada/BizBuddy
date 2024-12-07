@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { format, differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns'
+import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { Task, WorkLog } from '@/types/task'
 import TaskEditModal from './TaskEditModal'
@@ -13,26 +13,6 @@ interface TaskListProps {
   onUpdate: () => void
   onTaskSelect: (taskId: number) => void
   selectedTaskId: number | null
-}
-
-function formatRemainingTime(deadline: string): string {
-  const now = new Date()
-  const deadlineDate = new Date(deadline)
-  
-  if (deadlineDate < now) {
-    return '期限切れ'
-  }
-
-  const days = differenceInDays(deadlineDate, now)
-  const hours = differenceInHours(deadlineDate, now) % 24
-  const minutes = differenceInMinutes(deadlineDate, now) % 60
-
-  const parts = []
-  if (days > 0) parts.push(`${days}日`)
-  if (hours > 0) parts.push(`${hours}時間`)
-  if (minutes > 0) parts.push(`${minutes}分`)
-  
-  return parts.length > 0 ? parts.join(' ') : '1分未満'
 }
 
 export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId }: TaskListProps) {
@@ -49,13 +29,13 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
   // ステータスの優先順位を定義
   const statusOrder = {
     '進行中': 0,
-    'casual': 1,
-    '未着手': 2,
+    '未着手': 1,
+    'casual': 2,
     'backlog': 3,
     '完了': 4
   }
 
-  // ステータスの表示名マッピング
+  // ステータスの��示名マッピング
   const statusDisplay: { [key: string]: string } = {
     '進行中': '進行中',
     'casual': 'casual',
@@ -154,18 +134,6 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
     setIsWorkLogModalOpen(true)
   }
 
-  const handleOpenWorkLogModal = (taskId: number) => {
-    const now = new Date()
-    setCurrentTaskId(taskId)
-    setEditingWorkLog({
-      description: '',
-      started_at: now.toISOString(),
-      id: 0,
-      task_id: taskId
-    })
-    setIsWorkLogModalOpen(true)
-  }
-
   const handleUpdateTask = async (taskId: number, updates: Partial<Task>) => {
     try {
       const response = await fetch(`http://localhost:8000/tasks/${taskId}`, {
@@ -203,12 +171,6 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                   </th>
                   <th scope="col" className="px-2 py-2 text-left text-sm font-semibold text-gray-900">
                     🎖 
-                  </th>
-                  <th scope="col" className="px-2 py-2 text-left text-sm font-semibold text-gray-900">
-                    作成日
-                  </th>
-                  <th scope="col" className="px-2 py-2 text-left text-sm font-semibold text-gray-900">
-                    残り時間
                   </th>
                   <th scope="col" className="px-2 py-2 text-left text-sm font-semibold text-gray-900">
                     ステータス
@@ -286,12 +248,6 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
-                        {task.created_at ? format(new Date(task.created_at), 'yyyy/MM/dd HH:mm', { locale: ja }) : '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
-                        {task.deadline ? formatRemainingTime(task.deadline) : '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
                         <select
                           value={task.status}
                           onChange={(e) => {
@@ -301,51 +257,59 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                           onClick={(e) => e.stopPropagation()}
                           className="border-0 bg-transparent"
                         >
-                          <option value="未着手">未着手</option>
-                          <option value="進行中">進行中</option>
+                          <option value="未着手">todo</option>
+                          <option value="進行中">in progress</option>
                           <option value="casual">casual</option>
                           <option value="backlog">backlog</option>
-                          <option value="完了">完了</option>
+                          <option value="完了">done</option>
                         </select>
                       </td>
-                      <td className="whitespace-nowrap px-2 py-2 text-sm text-gray-500">
-                        <div className="flex space-x-2 justify-center">
+                      <td className="relative whitespace-nowrap py-2 pl-2 pr-2 text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEdit(task);
                             }}
-                            className="p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded"
-                            title="編集"
+                            className="text-blue-600 hover:text-blue-900"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                            </svg>
+                            ✏️
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDelete(task.id);
                             }}
-                            className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded"
-                            title="削除"
+                            className="text-red-600 hover:text-red-900"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
+                            🗑️
                           </button>
                         </div>
                       </td>
                     </tr>
                     {selectedTaskId === task.id && (
                       <tr>
-                        <td colSpan={6} className="px-2 py-2 bg-gray-50">
-                          <div 
-                            className="prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ 
-                              __html: marked(task.description.replace(/\n/g, '  \n')) 
-                            }}
-                          />
+                        <td colSpan={5} className="px-2 py-4 bg-gray-50">
+                          <div className="text-sm text-gray-500 mb-2">
+                            <div className="flex space-x-4 mb-2">
+                              <div>
+                                <span className="font-medium">作成日:</span>{' '}
+                                {task.created_at ? format(new Date(task.created_at), 'yyyy/MM/dd HH:mm', { locale: ja }) : '-'}
+                              </div>
+                              <div>
+                                <span className="font-medium">期限:</span>{' '}
+                                {task.deadline ? format(new Date(task.deadline), 'yyyy/MM/dd', { locale: ja }) : '-'}
+                              </div>
+                            </div>
+                          </div>
+                          {task.description && (
+                            <div 
+                              className="prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ 
+                                __html: marked.parse(task.description, { breaks: true }) 
+                              }} 
+                            />
+                          )}
                         </td>
                       </tr>
                     )}
@@ -357,19 +321,21 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
         </div>
       </div>
 
-      <TaskEditModal
-        task={editingTask}
-        isOpen={isEditModalOpen}
-        onClose={handleCloseModal}
-        onUpdate={onUpdate}
-      />
+      {editingTask && (
+        <TaskEditModal
+          task={editingTask}
+          isOpen={isEditModalOpen}
+          onClose={handleCloseModal}
+          onUpdate={onUpdate}
+        />
+      )}
 
       {currentTaskId && (
         <WorkLogModal
+          taskId={currentTaskId}
           isOpen={isWorkLogModalOpen}
           onClose={() => setIsWorkLogModalOpen(false)}
           onSave={handleSaveWorkLog}
-          taskId={currentTaskId}
           workLog={editingWorkLog}
         />
       )}

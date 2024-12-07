@@ -8,11 +8,48 @@ import TaskForm from '../components/TaskForm'
 import WorkLogModal from '@/components/WorkLogModal'
 import { Task, WorkLog } from '@/types/task'
 import { marked } from 'marked'
-import { format } from 'date-fns'
+import { format, differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import MemoList from '../components/MemoList'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import Timer from '../components/Timer'
+
+// パネルサイズの保存と読み込み用の関数
+const savePanelLayout = (sizes: number[]) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('panelLayout', JSON.stringify(sizes));
+  }
+};
+
+const loadPanelLayout = (): number[] => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('panelLayout');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  }
+  return [50, 50]; // デフォルト値
+};
+
+function formatRemainingTime(deadline: string): string {
+  const now = new Date()
+  const deadlineDate = new Date(deadline)
+  
+  if (deadlineDate < now) {
+    return '期限切れ'
+  }
+
+  const days = differenceInDays(deadlineDate, now)
+  const hours = differenceInHours(deadlineDate, now) % 24
+  const minutes = differenceInMinutes(deadlineDate, now) % 60
+
+  const parts = []
+  if (days > 0) parts.push(`${days}日`)
+  if (hours > 0) parts.push(`${hours}時間`)
+  if (minutes > 0) parts.push(`${minutes}分`)
+  
+  return parts.length > 0 ? parts.join(' ') : '1分未満'
+}
 
 // タブの定義
 const tabItems = [
@@ -37,6 +74,7 @@ export default function Home() {
   const [editingWorkLog, setEditingWorkLog] = useState<WorkLog | undefined>(undefined)
   const [deletingWorkLogId, setDeletingWorkLogId] = useState<number | null>(null);
   const [selectedTab, setSelectedTab] = useState(0)
+  const [panelSizes, setPanelSizes] = useState(loadPanelLayout())
 
   const fetchTasks = async () => {
     try {
@@ -71,6 +109,7 @@ export default function Home() {
   // キーボードショートカットの処理を追加
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // タスク選択のショートカット (Ctrl + 1-9)
       if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
         const num = parseInt(e.key);
         if (!isNaN(num) && num >= 1 && num <= 9) {
@@ -79,8 +118,8 @@ export default function Home() {
           const sortedTasks = [...tasks].sort((a, b) => {
             const statusOrder = {
               '進行中': 0,
-              'casual': 1,
-              '未着手': 2,
+              '未着手': 1,
+              'casual': 2,
               'backlog': 3,
               '完了': 4
             };
@@ -107,6 +146,13 @@ export default function Home() {
           e.preventDefault();
           setSelectedTab(0); // タスクタブのインデックス
         }
+      }
+      // 新規タスク作成のショートカット (Ctrl + Alt + N または Ctrl + N for Mac)
+      if ((e.ctrlKey && e.altKey && e.key.toLowerCase() === 'n') || 
+          (navigator.platform.toLowerCase().includes('mac') && e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'n')) {
+        e.preventDefault();
+        setSelectedTab(0); // タスクタブに切り替え
+        setIsTaskFormOpen(true);
       }
     };
 
@@ -216,8 +262,14 @@ export default function Home() {
                 </Tab.List>
                 <Tab.Panel>
                   <div className="py-6">
-                    <PanelGroup direction="horizontal">
-                      <Panel defaultSize={40} minSize={30}>
+                    <PanelGroup 
+                      direction="horizontal"
+                      onLayout={(sizes) => {
+                        savePanelLayout(sizes);
+                        setPanelSizes(sizes);
+                      }}
+                    >
+                      <Panel defaultSize={panelSizes[0]} minSize={30}>
                         <div>
                           <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-medium text-gray-900">タスク一覧</h2>
@@ -239,7 +291,7 @@ export default function Home() {
 
                       <PanelResizeHandle className="w-2 hover:bg-gray-200 transition-colors duration-200" />
 
-                      <Panel defaultSize={60} minSize={30}>
+                      <Panel defaultSize={panelSizes[1]} minSize={30}>
                         <div>
                           <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-medium text-gray-900">作業ログ</h2>

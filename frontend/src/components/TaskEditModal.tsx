@@ -188,11 +188,11 @@ export default function TaskEditModal({ task, isOpen, onClose, onUpdate }: TaskE
                         onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                       >
-                        <option value="未着手">未着手</option>
-                        <option value="進行中">進行中</option>
+                        <option value="未着手">todo</option>
+                        <option value="進行中">in progress</option>
                         <option value="casual">casual</option>
                         <option value="backlog">backlog</option>
-                        <option value="完了">完了</option>
+                        <option value="完了">done</option>
                       </select>
                     </div>
                   </div>

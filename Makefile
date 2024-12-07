@@ -1,5 +1,7 @@
 .PHONY: backend frontend dev setup clean
 
+SHELL := /bin/zsh
+
 # 開発サーバーの起動（両方同時に）
 dev:
 	@echo "Starting both servers..."
