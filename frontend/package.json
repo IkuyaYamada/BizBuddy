@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.0.0",
-    "@radix-ui/react-separator": "^1.1.0",
-    "@radix-ui/themes": "^3.1.6",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
@@ -29,7 +27,6 @@
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.9",
-    "@tailwindcss/typography": "^0.5.15",
-    "@types/prop-types": "^15.7.13"
+    "@tailwindcss/typography": "^0.5.15"
   }
 }
