@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useState, useEffect, KeyboardEvent, useRef } from 'react';
-import { Task, SubTask, LeafTask, ActionItem } from '../types/task';
-import * as api from '../lib/api';
-import FormField from './common/FormField';
+import { Task, SubTask, LeafTask, ActionItem } from '@/types/task';
+import * as api from '@/lib/api';
+import FormField from '@/components/common/FormField';
 import type { IconComponent } from '@heroicons/react/24/outline';
 import { PlusIcon as PlusIconHeroicon, TrashIcon as TrashIconHeroicon } from '@heroicons/react/24/outline';
 
