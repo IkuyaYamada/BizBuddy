@@ -35,32 +35,19 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
 
   const fetchMemos = async () => {
     try {
-      // キャッシュを無効化するためタイムスタンプを追加
-      const timestamp = new Date().getTime();
-      const response = await fetch(`http://localhost:8000/memos/?_t=${timestamp}`, {
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch memos');
+      const response = await fetch('http://localhost:8000/memos/')
+      if (response.ok) {
+        const data = await response.json()
+        // 作成日時（更新日時として使用）の降順でソート
+        const sortedMemos = data.sort((a: Memo, b: Memo) => {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        })
+        setMemos(sortedMemos)
       }
-
-      const data = await response.json();
-      console.log('Fetched memos:', data); // デバッグ用
-
-      // 作成日時（更新日時として使用）の降順でソート
-      const sortedMemos = data.sort((a: Memo, b: Memo) => {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-
-      setMemos(sortedMemos);
     } catch (error) {
-      console.error('Error fetching memos:', error);
+      console.error('Error fetching memos:', error)
     }
-  };
+  }
 
   useEffect(() => {
     fetchMemos();
@@ -206,7 +193,6 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
       if (workLogResponse.ok) {
         // メモにタスクを関連付ける
         const updatedTaskIds = [...new Set([...(memo.task_ids || []), taskId])];
-        console.log("Updating memo with task_ids:", updatedTaskIds); // デバッグ用
         const memoResponse = await fetch(
           `http://localhost:8000/memos/${memoId}`,
           {
@@ -223,7 +209,6 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
 
         if (memoResponse.ok) {
           const updatedMemo = await memoResponse.json();
-          console.log("Updated memo:", updatedMemo); // デバッグ用
           fetchMemos();
           onUpdate();
           setIsTaskSelectOpen(false);
@@ -364,10 +349,10 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
               />
             ) : (
               <div
-                className="prose prose-sm max-w-none cursor-pointer hover:bg-gray-50 rounded px-1"
                 onClick={() => startEdit(memo)}
+                className="prose prose-sm max-w-none hover:bg-gray-50 rounded-md p-2 transition-colors duration-200 cursor-text"
                 dangerouslySetInnerHTML={{
-                  __html: marked(memo.content.replace(/\n/g, "  \n")),
+                  __html: marked(memo.content, { breaks: true })
                 }}
               />
             )}

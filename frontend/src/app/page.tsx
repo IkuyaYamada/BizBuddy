@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Tab } from '@headlessui/react'
 import Tabs from '../components/Tabs'
 import TaskList from '../components/TaskList'
 import TaskForm from '../components/TaskForm'
-import WorkLogModal from '@/components/WorkLogModal'
 import { Task, WorkLog } from '@/types/task'
 import { marked } from 'marked'
 import { format, differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns'
@@ -13,6 +12,7 @@ import { ja } from 'date-fns/locale'
 import MemoList from '../components/MemoList'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import Timer from '../components/Timer'
+import WorkLogForm from '@/components/WorkLogForm'
 
 // パネルサイズの保存と読み込み用の関数
 const savePanelLayout = (sizes: number[]) => {
@@ -60,7 +60,7 @@ const tabItems = [
   { name: 'プロトタイプ', id: 'prototype' },
 ]
 
-// ユーティリティ関数
+// ユーザリティ関数
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ')
 }
@@ -75,6 +75,9 @@ export default function Home() {
   const [deletingWorkLogId, setDeletingWorkLogId] = useState<number | null>(null);
   const [selectedTab, setSelectedTab] = useState(0)
   const [panelSizes, setPanelSizes] = useState(loadPanelLayout())
+  const [editingWorkLogId, setEditingWorkLogId] = useState<number | null>(null)
+  const [editingWorkLogContent, setEditingWorkLogContent] = useState('')
+  const workLogTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const fetchTasks = async () => {
     try {
@@ -111,7 +114,7 @@ export default function Home() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // タスク選択のショートカット (Ctrl + 1-9)
       if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
-        const num = parseInt(e.key);
+        const num = parseInt(e.key)
         if (!isNaN(num) && num >= 1 && num <= 9) {
           e.preventDefault();
           // ステータスと優先度でソートされた順序を使用
@@ -227,6 +230,59 @@ export default function Home() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (editingWorkLogId && workLogTextareaRef.current) {
+      workLogTextareaRef.current.focus()
+      workLogTextareaRef.current.style.height = 'auto'
+      workLogTextareaRef.current.style.height = workLogTextareaRef.current.scrollHeight + 'px'
+      // カーソルを文末に移動
+      const length = workLogTextareaRef.current.value.length
+      workLogTextareaRef.current.setSelectionRange(length, length)
+    }
+  }, [editingWorkLogId])
+
+  const handleWorkLogEdit = (log: WorkLog) => {
+    setEditingWorkLogId(log.id)
+    setEditingWorkLogContent(log.description)
+    // 次のレンダリングサイクルでテキストエリアにフォーカスを当てるため、
+    // useEffectでフォーカス処理を行う
+  }
+
+  const handleWorkLogUpdate = async (log: WorkLog, newDescription: string) => {
+    if (newDescription.trim() === '') return
+    
+    try {
+      const response = await fetch(`http://localhost:8000/tasks/${log.task_id}/work-logs/${log.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...log,
+          description: newDescription
+        }),
+      })
+
+      if (response.ok) {
+        fetchTasks()
+        setEditingWorkLogId(null)
+        setEditingWorkLogContent('')
+      }
+    } catch (error) {
+      console.error('Error updating work log:', error)
+    }
+  }
+
+  const handleWorkLogKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, log: WorkLog) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      handleWorkLogUpdate(log, editingWorkLogContent)
+    } else if (e.key === 'Escape') {
+      setEditingWorkLogId(null)
+      setEditingWorkLogContent('')
+    }
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -382,35 +438,78 @@ export default function Home() {
                                         )}
                                       </div>
                                       <div className="flex space-x-2">
-                                        <button
-                                          onClick={() => handleEditWorkLog(selectedTaskId, log)}
-                                          className="text-xs text-indigo-600 hover:text-indigo-900"
-                                        >
-                                          編集
-                                        </button>
-                                        {deletingWorkLogId === log.id ? (
-                                          <button
-                                            onClick={() => handleDeleteWorkLog(selectedTaskId, log.id)}
-                                            className="text-xs text-red-600 hover:text-red-900 font-medium"
-                                          >
-                                            削除する
-                                          </button>
+                                        {editingWorkLogId === log.id ? (
+                                          <>
+                                            <button
+                                              onClick={() => handleWorkLogUpdate(log, editingWorkLogContent)}
+                                              className="text-xs text-blue-600 hover:text-blue-900 font-medium"
+                                            >
+                                              保存
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setEditingWorkLogId(null)
+                                                setEditingWorkLogContent('')
+                                              }}
+                                              className="text-xs text-gray-600 hover:text-gray-900"
+                                            >
+                                              キャンセル
+                                            </button>
+                                          </>
                                         ) : (
-                                          <button
-                                            onClick={() => setDeletingWorkLogId(log.id)}
-                                            className="text-xs text-red-600 hover:text-red-900"
-                                          >
-                                            削除
-                                          </button>
+                                          <>
+                                            {deletingWorkLogId === log.id ? (
+                                              <button
+                                                onClick={() => handleDeleteWorkLog(selectedTaskId, log.id)}
+                                                className="text-xs text-red-600 hover:text-red-900 font-medium"
+                                              >
+                                                削除する
+                                              </button>
+                                            ) : (
+                                              <button
+                                                onClick={() => setDeletingWorkLogId(log.id)}
+                                                className="text-xs text-red-600 hover:text-red-900"
+                                              >
+                                                削除
+                                              </button>
+                                            )}
+                                          </>
                                         )}
                                       </div>
                                     </div>
-                                    <div 
-                                      className="prose prose-sm max-w-none"
-                                      dangerouslySetInnerHTML={{ 
-                                        __html: marked(log.description.replace(/\n/g, '  \n')) 
-                                      }}
-                                    />
+                                    {editingWorkLogId === log.id ? (
+                                      <textarea
+                                        ref={workLogTextareaRef}
+                                        value={editingWorkLogContent}
+                                        onChange={(e) => {
+                                          setEditingWorkLogContent(e.target.value)
+                                          e.target.style.height = 'auto'
+                                          e.target.style.height = e.target.scrollHeight + 'px'
+                                        }}
+                                        onKeyDown={(e) => handleWorkLogKeyDown(e, log)}
+                                        onBlur={() => {
+                                          if (editingWorkLogContent.trim() !== log.description.trim()) {
+                                            handleWorkLogUpdate(log, editingWorkLogContent)
+                                          } else {
+                                            setEditingWorkLogId(null)
+                                            setEditingWorkLogContent('')
+                                          }
+                                        }}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm resize-none"
+                                        style={{
+                                          minHeight: '4.5rem',
+                                          maxHeight: '20rem'
+                                        }}
+                                      />
+                                    ) : (
+                                      <div
+                                        onClick={() => handleWorkLogEdit(log)}
+                                        className="prose prose-sm max-w-none cursor-text hover:bg-gray-50 rounded-md p-2 transition-colors duration-200"
+                                        dangerouslySetInnerHTML={{
+                                          __html: marked(log.description, { breaks: true })
+                                        }}
+                                      />
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -456,24 +555,50 @@ export default function Home() {
       </div>
 
       {/* タスク作成モーダル */}
-      <TaskForm 
+      <TaskForm
         isOpen={isTaskFormOpen}
         onClose={() => setIsTaskFormOpen(false)}
-        onTaskCreated={() => {
-          fetchTasks()
-          setIsTaskFormOpen(false)
+        onSubmit={async (data) => {
+          try {
+            const formattedData = {
+              ...data,
+              deadline: data.deadline ? `${data.deadline}T00:00:00Z` : null,
+              created_at: new Date().toISOString(),
+              last_updated: new Date().toISOString()
+            };
+            
+            const response = await fetch('http://localhost:8000/tasks/', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(formattedData),
+            })
+
+            if (response.ok) {
+              fetchTasks()
+              setIsTaskFormOpen(false)
+            } else {
+              const errorData = await response.json()
+              console.error('Error creating task:', errorData)
+            }
+          } catch (error) {
+            console.error('Error creating task:', error)
+          }
         }}
       />
 
-      {selectedTaskId && (
-        <WorkLogModal
-          isOpen={isWorkLogModalOpen}
-          onClose={() => setIsWorkLogModalOpen(false)}
-          onSave={handleSaveWorkLog}
-          taskId={selectedTaskId}
-          workLog={editingWorkLog}
-        />
-      )}
+      {/* 作業ログモーダル */}
+      <WorkLogForm
+        isOpen={isWorkLogModalOpen}
+        onClose={() => {
+          setIsWorkLogModalOpen(false)
+          setEditingWorkLog(undefined)
+        }}
+        onSubmit={handleSaveWorkLog}
+        taskId={selectedTaskId!}
+        initialData={editingWorkLog}
+      />
     </main>
   )
 }

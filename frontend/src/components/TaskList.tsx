@@ -5,8 +5,8 @@ import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { Task, WorkLog } from '@/types/task'
 import TaskEditModal from './TaskEditModal'
-import WorkLogModal from './WorkLogModal'
 import { marked } from 'marked'
+import WorkLogForm from './WorkLogForm'
 
 interface TaskListProps {
   tasks: Task[]
@@ -331,12 +331,15 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
       )}
 
       {currentTaskId && (
-        <WorkLogModal
-          taskId={currentTaskId}
+        <WorkLogForm
           isOpen={isWorkLogModalOpen}
-          onClose={() => setIsWorkLogModalOpen(false)}
-          onSave={handleSaveWorkLog}
-          workLog={editingWorkLog}
+          onClose={() => {
+            setIsWorkLogModalOpen(false)
+            setEditingWorkLog(undefined)
+          }}
+          onSubmit={handleSaveWorkLog}
+          taskId={currentTaskId}
+          initialData={editingWorkLog}
         />
       )}
     </div>
