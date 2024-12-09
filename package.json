@@ -1,0 +1,14 @@
+{
+  "name": "bizbuddy",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "backend": "cd backend && . venv/bin/activate && uvicorn app.main:app --reload --host 127.0.0.1 --log-level debug",
+    "frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "setup": "cd backend && python -m venv venv && . venv/bin/activate && pip install -r requirements.txt && cd ../frontend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 
