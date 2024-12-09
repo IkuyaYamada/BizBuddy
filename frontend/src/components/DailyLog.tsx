@@ -407,145 +407,9 @@ export const DailyLog = ({ tasks, selectedDate = new Date() }: DailyLogProps) =>
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
-      {/* タスク選択ドロワー */}
-      <div className="fixed bottom-4 right-4 z-[100]">
-        <button
-          onClick={() => setIsSelectionOpen(!isSelectionOpen)}
-          className="bg-white rounded-full w-12 h-12 shadow-lg flex items-center justify-center text-indigo-600 hover:bg-indigo-50 transition-colors"
-          title={isSelectionOpen ? "選択パネルを閉じる" : "タスクを追加"}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-6 h-6 transition-transform duration-300 ${isSelectionOpen ? 'rotate-45' : ''}`}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-        </button>
-      </div>
-
-      <div className={`fixed right-4 bottom-20 bg-white rounded-lg shadow-xl transition-all duration-300 transform origin-bottom-right z-[100] ${
-        isSelectionOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-      }`} style={{ width: '420px', maxHeight: 'calc(100vh - 180px)' }}>
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
-          <div className="space-y-6">
-            {/* タスク選択 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">タスク</label>
-              <select
-                value={selectedTaskId || ''}
-                onChange={(e) => handleTaskSelect(e.target.value ? Number(e.target.value) : null)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              >
-                <option value="">タスクを選択</option>
-                {sortedTasks.map((task) => (
-                  <option key={task.id} value={task.id}>
-                    {task.title} ({task.status})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* サブタスク選択 */}
-            {selectedTaskId && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">サブタスク</label>
-                <div className="space-y-1 max-h-32 overflow-y-auto rounded-md border border-gray-200 bg-gray-50">
-                  {isLoading ? (
-                    <p className="text-sm text-gray-500 p-3">読み込み中...</p>
-                  ) : (
-                    <>
-                      {selectedSubTasks.map(subTask => (
-                        <button
-                          key={subTask.id}
-                          onClick={() => handleSubTaskSelect(subTask.id)}
-                          className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                            selectedSubTaskId === subTask.id
-                              ? 'bg-indigo-100 text-indigo-800 font-medium'
-                              : 'hover:bg-white'
-                          }`}
-                        >
-                          {subTask.title}
-                        </button>
-                      ))}
-                      {selectedTaskId && selectedSubTasks.length === 0 && (
-                        <p className="text-sm text-gray-500 p-3">サブタスクがありません</p>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* アクションアイテム選択 */}
-            {selectedSubTaskId && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">アクションアイテム</label>
-                <div className="space-y-4 max-h-[280px] overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-3">
-                  {selectedSubTasks
-                    .find(st => st.id === selectedSubTaskId)
-                    ?.leaf_tasks?.map(leafTask => (
-                      <div key={leafTask.id} className="space-y-2">
-                        {/* リーフタスク名 */}
-                        <div className="text-xs font-medium text-emerald-600 px-2 flex items-center gap-2 bg-emerald-50 py-1.5 rounded-md">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                            <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                          </svg>
-                          {leafTask.title}
-                        </div>
-                        {/* そのリーフタスクに属するアクションアイテム */}
-                        <div className="space-y-1 pl-4 border-l-2 border-emerald-100">
-                          {leafTask.action_items?.map(actionItem => (
-                            <div
-                              key={actionItem.id}
-                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-white rounded-md transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={actionItem.is_completed}
-                                onChange={async () => {
-                                  try {
-                                    await api.updateActionItem(actionItem.id, {
-                                      content: actionItem.content,
-                                      is_completed: !actionItem.is_completed
-                                    });
-                                    setSelectedActionItems(prev =>
-                                      prev.map(item =>
-                                        item.id === actionItem.id
-                                          ? { ...item, is_completed: !item.is_completed }
-                                          : item
-                                      )
-                                    );
-                                  } catch (error) {
-                                    console.error('Failed to update action item:', error);
-                                  }
-                                }}
-                                className="h-4 w-4 text-emerald-600 rounded border-gray-300"
-                              />
-                              <span className={`text-sm flex-1 ${actionItem.is_completed ? 'line-through text-gray-500' : ''}`}>
-                                {actionItem.content}
-                              </span>
-                              <button
-                                onClick={() => handleAddToPlan(actionItem)}
-                                className="text-sm text-emerald-600 hover:text-emerald-800 bg-white hover:bg-emerald-50 px-3 py-1 rounded-md transition-colors"
-                              >
-                                追加
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  {selectedSubTaskId && (!selectedSubTasks.find(st => st.id === selectedSubTaskId)?.leaf_tasks?.length || 
-                    !selectedSubTasks.find(st => st.id === selectedSubTaskId)?.leaf_tasks?.some(lt => lt.action_items?.length)) && (
-                    <p className="text-sm text-gray-500 text-center py-4">アクションアイテムがありません</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* メインコンテンツ */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg p-6 border border-blue-100">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-start mb-8">
           <div>
             <h3 className="text-2xl font-bold text-indigo-900 mb-2">
               今日のチャレンジ
@@ -554,11 +418,153 @@ export const DailyLog = ({ tasks, selectedDate = new Date() }: DailyLogProps) =>
               {format(selectedDate, 'yyyy年M月d日 (E)', { locale: ja })}
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold text-indigo-600 mb-1">
-              {dailyPlanItems.filter(item => item.is_completed).length} / {dailyPlanItems.length}
+          <div className="flex items-start gap-6">
+            <div className="text-right">
+              <div className="text-3xl font-bold text-indigo-600 mb-1">
+                {dailyPlanItems.filter(item => item.is_completed).length} / {dailyPlanItems.length}
+              </div>
+              <div className="text-sm text-indigo-500">完了タスク</div>
             </div>
-            <div className="text-sm text-indigo-500">完了タスク</div>
+            <div className="relative">
+              <button
+                onClick={() => setIsSelectionOpen(!isSelectionOpen)}
+                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                  isSelectionOpen
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                    : 'bg-white text-indigo-600 hover:bg-indigo-50 shadow-sm'
+                }`}
+                title={isSelectionOpen ? "選択パネルを閉じる" : "タスクを追加"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={`w-5 h-5 transition-transform duration-300 ${isSelectionOpen ? 'rotate-45' : ''}`}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                タスクを追加
+              </button>
+
+              {/* タスク選択パネル */}
+              <div className={`absolute top-12 right-0 bg-white rounded-xl shadow-xl transition-all duration-300 transform origin-top-right z-[100] ${
+                isSelectionOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+              }`} style={{ width: '420px', maxHeight: 'calc(100vh - 240px)' }}>
+                <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+                  <div className="space-y-6">
+                    {/* タスク選択 */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">タスク</label>
+                      <select
+                        value={selectedTaskId || ''}
+                        onChange={(e) => handleTaskSelect(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      >
+                        <option value="">タスクを選択</option>
+                        {sortedTasks.map((task) => (
+                          <option key={task.id} value={task.id}>
+                            {task.title} ({task.status})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* サブタスク選択 */}
+                    {selectedTaskId && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">サブタスク</label>
+                        <div className="space-y-1 max-h-32 overflow-y-auto rounded-md border border-gray-200 bg-gray-50">
+                          {isLoading ? (
+                            <p className="text-sm text-gray-500 p-3">読み込み中...</p>
+                          ) : (
+                            <>
+                              {selectedSubTasks.map(subTask => (
+                                <button
+                                  key={subTask.id}
+                                  onClick={() => handleSubTaskSelect(subTask.id)}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                                    selectedSubTaskId === subTask.id
+                                      ? 'bg-indigo-100 text-indigo-800 font-medium'
+                                      : 'hover:bg-white'
+                                  }`}
+                                >
+                                  {subTask.title}
+                                </button>
+                              ))}
+                              {selectedTaskId && selectedSubTasks.length === 0 && (
+                                <p className="text-sm text-gray-500 p-3">サブタスクがありません</p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* アクションアイテム選択 */}
+                    {selectedSubTaskId && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">アクションアイテム</label>
+                        <div className="space-y-4 max-h-[280px] overflow-y-auto rounded-md border border-gray-200 bg-gray-50 p-3">
+                          {selectedSubTasks
+                            .find(st => st.id === selectedSubTaskId)
+                            ?.leaf_tasks?.map(leafTask => (
+                              <div key={leafTask.id} className="space-y-2">
+                                {/* リーフタスク名 */}
+                                <div className="text-xs font-medium text-emerald-600 px-2 flex items-center gap-2 bg-emerald-50 py-1.5 rounded-md">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                                  </svg>
+                                  {leafTask.title}
+                                </div>
+                                {/* そのリーフタスクに属するアクションアイテム */}
+                                <div className="space-y-1 pl-4 border-l-2 border-emerald-100">
+                                  {leafTask.action_items?.map(actionItem => (
+                                    <div
+                                      key={actionItem.id}
+                                      className="flex items-center gap-3 px-3 py-2.5 hover:bg-white rounded-md transition-colors"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={actionItem.is_completed}
+                                        onChange={async () => {
+                                          try {
+                                            await api.updateActionItem(actionItem.id, {
+                                              content: actionItem.content,
+                                              is_completed: !actionItem.is_completed
+                                            });
+                                            setSelectedActionItems(prev =>
+                                              prev.map(item =>
+                                                item.id === actionItem.id
+                                                  ? { ...item, is_completed: !item.is_completed }
+                                                  : item
+                                              )
+                                            );
+                                          } catch (error) {
+                                            console.error('Failed to update action item:', error);
+                                          }
+                                        }}
+                                        className="h-4 w-4 text-emerald-600 rounded border-gray-300"
+                                      />
+                                      <span className={`text-sm flex-1 ${actionItem.is_completed ? 'line-through text-gray-500' : ''}`}>
+                                        {actionItem.content}
+                                      </span>
+                                      <button
+                                        onClick={() => handleAddToPlan(actionItem)}
+                                        className="text-sm text-emerald-600 hover:text-emerald-800 bg-white hover:bg-emerald-50 px-3 py-1 rounded-md transition-colors"
+                                      >
+                                        追加
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          {selectedSubTaskId && (!selectedSubTasks.find(st => st.id === selectedSubTaskId)?.leaf_tasks?.length || 
+                            !selectedSubTasks.find(st => st.id === selectedSubTaskId)?.leaf_tasks?.some(lt => lt.action_items?.length)) && (
+                            <p className="text-sm text-gray-500 text-center py-4">アクションアイテムがありません</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
