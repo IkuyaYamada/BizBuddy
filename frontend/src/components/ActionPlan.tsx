@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, KeyboardEvent, useRef } from 'react';
+import React, { useState, useEffect, KeyboardEvent, useRef, useMemo } from 'react';
 import { Task, SubTask, LeafTask, ActionItem } from '@/types/task';
 import * as api from '@/lib/api';
 import FormField from '@/components/common/FormField';
@@ -64,6 +64,15 @@ interface ActionPlanProps {
   selectedTaskId: number | null;
 }
 
+// ステータスの優先順位を定義
+const statusOrder = {
+  '進行中': 0,
+  '未着手': 1,
+  'casual': 2,
+  'backlog': 3,
+  '完了': 4
+};
+
 export const ActionPlan = ({ tasks, onTaskSelect, selectedTaskId }: ActionPlanProps) => {
   const [subTasks, setSubTasks] = useState<SubTask[]>([]);
   const [editingSubTaskTitle, setEditingSubTaskTitle] = useState<{ [key: number]: string }>({});
@@ -73,6 +82,15 @@ export const ActionPlan = ({ tasks, onTaskSelect, selectedTaskId }: ActionPlanPr
   }>({});
   const [deletingSubTaskId, setDeletingSubTaskId] = useState<number | null>(null);
   const [deletingLeafTaskId, setDeletingLeafTaskId] = useState<number | null>(null);
+
+  // タスクを並び替え
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      const statusDiff = statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
+      if (statusDiff !== 0) return statusDiff;
+      return b.priority - a.priority;
+    });
+  }, [tasks]);
 
   useEffect(() => {
     if (selectedTaskId) {
@@ -385,9 +403,9 @@ export const ActionPlan = ({ tasks, onTaskSelect, selectedTaskId }: ActionPlanPr
           className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
         >
           <option value="">タスクを選択してください</option>
-          {tasks.map((task) => (
+          {sortedTasks.map((task) => (
             <option key={task.id} value={task.id}>
-              {task.title}
+              {task.title} ({task.status})
             </option>
           ))}
         </select>
