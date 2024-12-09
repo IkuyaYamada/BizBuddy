@@ -3,8 +3,10 @@
 import { Task } from '@/types/task'
 import { useState } from 'react'
 
-interface TaskBuilderProps {
-  task: Task
+interface ActionPlanProps {
+  tasks: Task[]
+  onTaskSelect: (taskId: number) => void
+  selectedTaskId: number | null
 }
 
 interface SubTask {
@@ -19,8 +21,9 @@ interface LeafTask {
   actionItems: string[]
 }
 
-export default function TaskBuilder({ task }: TaskBuilderProps) {
+export default function ActionPlan({ tasks, onTaskSelect, selectedTaskId }: ActionPlanProps) {
   const [subTasks, setSubTasks] = useState<SubTask[]>([])
+  const selectedTask = tasks.find(task => task.id === selectedTaskId)
 
   const addSubTask = () => {
     if (subTasks.length >= 3) return
@@ -73,22 +76,67 @@ export default function TaskBuilder({ task }: TaskBuilderProps) {
 
   return (
     <div className="p-4">
-      {/* メインタスク */}
-      <div className="relative">
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white mb-8">
-          <h2 className="text-xl font-bold mb-2">{task.title}</h2>
-          <p className="text-blue-50 whitespace-pre-wrap">{task.description}</p>
+      {/* タスク選択セクション */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-medium text-gray-900">アクションプラン</h2>
         </div>
-
-        {/* 接続線 */}
-        {subTasks.length > 0 && (
-          <div className="absolute left-1/2 -translate-x-1/2 h-8 w-0.5 bg-gray-300" style={{ top: '100%' }} />
+        {!selectedTask ? (
+          <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div className="mb-4 text-gray-600">
+              タスクを選択してアクションプランを作成しましょう
+            </div>
+            <select
+              value={selectedTaskId || ''}
+              onChange={(e) => onTaskSelect(Number(e.target.value))}
+              className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+            >
+              <option value="">タスクを選択</option>
+              {tasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.title} - {task.status}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-4 mb-4">
+            <select
+              value={selectedTaskId || ''}
+              onChange={(e) => onTaskSelect(Number(e.target.value))}
+              className="flex-1 px-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+            >
+              {tasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.title} - {task.status}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
+      {/* メインタスク */}
+      {selectedTask && (
+        <div className="relative">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white mb-8">
+            <h2 className="text-xl font-bold mb-2">{selectedTask.title}</h2>
+            <p className="text-blue-50 whitespace-pre-wrap">{selectedTask.description}</p>
+            <div className="mt-4 text-sm text-blue-100">
+              ステータス: {selectedTask.status}
+            </div>
+          </div>
+
+          {/* 接続線 */}
+          {subTasks.length > 0 && (
+            <div className="absolute left-1/2 -translate-x-1/2 h-8 w-0.5 bg-gray-300" style={{ top: '100%' }} />
+          )}
+        </div>
+      )}
+
       {/* サブタスク */}
       <div className="space-y-12">
-        {subTasks.map((subTask, index) => (
+        {subTasks.map((subTask) => (
           <div key={subTask.id} className="relative">
             {/* 垂直の接続線 */}
             <div className="absolute left-1/2 -translate-x-1/2 -top-8 h-8 w-0.5 bg-gray-300" />
@@ -124,7 +172,7 @@ export default function TaskBuilder({ task }: TaskBuilderProps) {
 
             {/* リーフタスク */}
             <div className="grid grid-cols-3 gap-6 ml-8 relative">
-              {subTask.leafTasks.map((leafTask, leafIndex) => (
+              {subTask.leafTasks.map((leafTask) => (
                 <div key={leafTask.id} className="relative">
                   {/* 水平の接続線 */}
                   <div className="absolute left-1/2 -translate-x-1/2 -top-8 h-8 w-0.5 bg-gray-300" />
@@ -187,7 +235,7 @@ export default function TaskBuilder({ task }: TaskBuilderProps) {
       </div>
 
       {/* サブタスク追加ボタン */}
-      {subTasks.length < 3 && (
+      {selectedTask && subTasks.length < 3 && (
         <button
           onClick={addSubTask}
           className="mt-12 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 mx-auto block"

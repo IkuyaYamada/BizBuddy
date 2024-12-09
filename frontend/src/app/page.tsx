@@ -13,7 +13,7 @@ import MemoList from '../components/MemoList'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import Timer from '../components/Timer'
 import WorkLogForm from '@/components/WorkLogForm'
-import TaskBuilder from '@/components/TaskBuilder'
+import ActionPlan from '@/components/ActionPlan'
 
 // パネルサイズの保存と読み込み用の関数
 const savePanelLayout = (sizes: number[]) => {
@@ -57,7 +57,7 @@ const tabItems = [
   { name: 'タスク', id: 'tasks' },
   { name: 'メモ', id: 'notes' },
   { name: '時計', id: 'timer' },
-  { name: 'マインドマップ', id: 'mindmap' },
+  { name: 'アクションプラン', id: 'action-plan' },
   { name: 'プロトタイプ', id: 'prototype' },
 ]
 
@@ -304,8 +304,8 @@ export default function Home() {
                   {[
                     { id: 'tasks', name: 'タスク' },
                     { id: 'memos', name: 'メモ' },
-                    { id: 'builder', name: 'タスクビルダー' },
-                    { id: 'mindmap', name: 'マインドマップ' },
+                    { id: 'timer', name: '時計' },
+                    { id: 'action-plan', name: 'アクションプラン' },
                     { id: 'prototype', name: 'プロトタイプ' }
                   ].map((tab) => (
                     <Tab
@@ -357,182 +357,21 @@ export default function Home() {
                         <PanelResizeHandle className="w-2 hover:bg-gray-200 transition-colors duration-200" />
 
                         <Panel defaultSize={panelSizes[1]} minSize={30}>
-                          <div>
-                            <div className="flex justify-between items-center mb-4">
-                              <h2 className="text-lg font-medium text-gray-900">作業ログ</h2>
-                            </div>
-                            <div className="bg-white shadow rounded-lg p-6">
-                              {selectedTaskId ? (
-                                <div>
-                                  <div className="mb-6 border-b border-gray-200 pb-6">
-                                    <form onSubmit={(e) => {
-                                      e.preventDefault();
-                                      const form = e.target as HTMLFormElement;
-                                      const description = (form.elements.namedItem('description') as HTMLTextAreaElement).value;
-                                      if (description.trim()) {
-                                        const now = new Date();
-                                        // JSTのオフセットを考慮して日時を調整
-                                        const jstOffset = 9 * 60;
-                                        now.setMinutes(now.getMinutes() + jstOffset);
-                                        
-                                        handleSaveWorkLog({
-                                          description,
-                                          started_at: now.toISOString(),
-                                          task_id: selectedTaskId!
-                                        });
-                                        form.reset();
-                                        const textarea = form.elements.namedItem('description') as HTMLTextAreaElement;
-                                        textarea.style.height = 'auto';
-                                        textarea.style.height = textarea.scrollHeight + 'px';
-                                      }
-                                    }}>
-                                      <textarea
-                                        name="description"
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm resize-none mb-3"
-                                        placeholder="作業内容を入力..."
-                                        onKeyDown={(e) => {
-                                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                                            e.preventDefault();
-                                            const form = e.currentTarget.form;
-                                            if (form && e.currentTarget.value.trim()) {
-                                              const now = new Date();
-                                              // JSTのオフセットを考慮して日時を調整
-                                              const jstOffset = 9 * 60;
-                                              now.setMinutes(now.getMinutes() + jstOffset);
-
-                                              handleSaveWorkLog({
-                                                description: e.currentTarget.value,
-                                                started_at: now.toISOString(),
-                                                task_id: selectedTaskId!
-                                              });
-                                              form.reset();
-                                              e.currentTarget.style.height = 'auto';
-                                              e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                                            }
-                                          }
-                                        }}
-                                        onInput={(e) => {
-                                          const textarea = e.target as HTMLTextAreaElement;
-                                          textarea.style.height = 'auto';
-                                          textarea.style.height = textarea.scrollHeight + 'px';
-                                        }}
-                                        style={{
-                                          minHeight: '4.5rem',
-                                          maxHeight: '20rem'
-                                        }}
-                                      />
-                                      <div className="flex justify-end">
-                                        <button
-                                          type="submit"
-                                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                        >
-                                          記録
-                                        </button>
-                                      </div>
-                                    </form>
-                                  </div>
-                                  {tasks.find(task => task.id === selectedTaskId)?.work_logs
-                                    ?.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())
-                                    ?.map(log => (
-                                    <div key={log.id} className="mb-6 last:mb-0 border-b border-gray-200 last:border-0 pb-4 last:pb-0">
-                                      <div className="flex justify-between items-start mb-2">
-                                        <div className="text-sm text-gray-500">
-                                          {format(new Date(log.started_at), 'yyyy/MM/dd HH:mm', { locale: ja })}
-                                          {log.ended_at && (
-                                            <>
-                                              <span className="mx-1">→</span>
-                                              {format(new Date(log.ended_at), 'HH:mm', { locale: ja })}
-                                            </>
-                                          )}
-                                        </div>
-                                        <div className="flex space-x-2">
-                                          {editingWorkLogId === log.id ? (
-                                            <>
-                                              <button
-                                                onClick={() => handleWorkLogUpdate(log, editingWorkLogContent)}
-                                                className="text-xs text-blue-600 hover:text-blue-900 font-medium"
-                                              >
-                                                保存
-                                              </button>
-                                              <button
-                                                onClick={() => {
-                                                  setEditingWorkLogId(null)
-                                                  setEditingWorkLogContent('')
-                                                }}
-                                                className="text-xs text-gray-600 hover:text-gray-900"
-                                              >
-                                                キャンセル
-                                              </button>
-                                            </>
-                                          ) : (
-                                            <>
-                                              {deletingWorkLogId === log.id ? (
-                                                <button
-                                                  onClick={() => handleDeleteWorkLog(selectedTaskId, log.id)}
-                                                  className="text-xs text-red-600 hover:text-red-900 font-medium"
-                                                >
-                                                  削除する
-                                                </button>
-                                              ) : (
-                                                <button
-                                                  onClick={() => setDeletingWorkLogId(log.id)}
-                                                  className="text-xs text-red-600 hover:text-red-900"
-                                                >
-                                                  削除
-                                                </button>
-                                              )}
-                                            </>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {editingWorkLogId === log.id ? (
-                                        <textarea
-                                          ref={workLogTextareaRef}
-                                          value={editingWorkLogContent}
-                                          onChange={(e) => {
-                                            setEditingWorkLogContent(e.target.value)
-                                            e.target.style.height = 'auto'
-                                            e.target.style.height = e.target.scrollHeight + 'px'
-                                          }}
-                                          onKeyDown={(e) => handleWorkLogKeyDown(e, log)}
-                                          onBlur={() => {
-                                            if (editingWorkLogContent.trim() !== log.description.trim()) {
-                                              handleWorkLogUpdate(log, editingWorkLogContent)
-                                            } else {
-                                              setEditingWorkLogId(null)
-                                              setEditingWorkLogContent('')
-                                            }
-                                          }}
-                                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm resize-none"
-                                          style={{
-                                            minHeight: '4.5rem',
-                                            maxHeight: '20rem'
-                                          }}
-                                        />
-                                      ) : (
-                                        <div
-                                          onClick={() => handleWorkLogEdit(log)}
-                                          className="prose prose-sm max-w-none cursor-text hover:bg-gray-50 rounded-md p-2 transition-colors duration-200"
-                                          dangerouslySetInnerHTML={{
-                                            __html: marked(log.description, { breaks: true })
-                                          }}
-                                        />
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-gray-500 text-center">タスクを選択してください</p>
-                              )}
-                            </div>
+                          <div className="py-8 text-center text-gray-500">
+                            タスクを選択してください
                           </div>
                         </Panel>
                       </PanelGroup>
                     </div>
                   </Tab.Panel>
                   <Tab.Panel>
-                    <div className="py-8">
+                    <div className="py-6">
                       <MemoList tasks={tasks} onUpdate={fetchTasks} />
+                    </div>
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    <div className="py-6">
+                      <Timer />
                     </div>
                   </Tab.Panel>
                   <Tab.Panel>
@@ -567,23 +406,13 @@ export default function Home() {
                         <PanelResizeHandle className="w-2 hover:bg-gray-200 transition-colors duration-200" />
 
                         <Panel defaultSize={panelSizes[1]} minSize={30}>
-                          {selectedTaskId && tasks.find(task => task.id === selectedTaskId) && (
-                            <TaskBuilder task={tasks.find(task => task.id === selectedTaskId)!} />
-                          )}
-                          {!selectedTaskId && (
-                            <div className="py-8 text-center text-gray-500">
-                              タスクを選択してください
-                            </div>
-                          )}
+                          <ActionPlan
+                            tasks={tasks}
+                            onTaskSelect={handleTaskSelect}
+                            selectedTaskId={selectedTaskId}
+                          />
                         </Panel>
                       </PanelGroup>
-                    </div>
-                  </Tab.Panel>
-                  <Tab.Panel>
-                    <div className="py-8">
-                      <div className="rounded-lg border-4 border-dashed border-gray-200 p-4">
-                        <p className="text-center text-gray-500">マインドマップ機能（開発中）</p>
-                      </div>
                     </div>
                   </Tab.Panel>
                   <Tab.Panel>
