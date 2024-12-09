@@ -27,20 +27,26 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
       description: '## 目的\n\n## 手順\n\n## その他\n',
       motivation: 50,
       priority: 50,
-      deadline: format(addDays(new Date(), 7), "yyyy-MM-dd'T'HH:mm"),
+      deadline: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
       status: '未着手'
-    }
-  })
+    },
+    mode: 'onChange'
+  });
+
+  const titleRef = register('title', { 
+    required: 'タイトルは必須です',
+  });
 
   const motivationValue = watch('motivation')
   const priorityValue = watch('priority')
 
-  const titleInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => {
-        titleInputRef.current?.focus();
+        const titleInput = document.querySelector('input[name="title"]');
+        if (titleInput instanceof HTMLInputElement) {
+          titleInput.focus();
+        }
       }, 0);
     } else {
       reset();
@@ -49,16 +55,19 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
 
   const onSubmit = async (data: TaskFormData) => {
     try {
+      const formattedData = {
+        ...data,
+        deadline: data.deadline ? `${data.deadline}T00:00:00Z` : null,
+        created_at: new Date().toISOString(),
+        last_updated: new Date().toISOString()
+      };
+      
       const response = await fetch('http://localhost:8000/tasks/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...data,
-          created_at: new Date().toISOString(),
-          last_updated: new Date().toISOString()
-        }),
+        body: JSON.stringify(formattedData),
       })
 
       if (response.ok) {
@@ -73,9 +82,24 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
     }
   }
 
+  const wrappedSubmit = handleSubmit(
+    (data) => {
+      return onSubmit(data);
+    },
+    (errors) => {
+      if (errors.title) {
+        const titleInput = document.querySelector('input[name="title"]');
+        if (titleInput instanceof HTMLInputElement) {
+          titleInput.focus();
+        }
+      }
+    }
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      handleSubmit(onSubmit)(e)
+      e.preventDefault();
+      wrappedSubmit(e);
     }
   }
 
@@ -112,16 +136,28 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
                   </Dialog.Title>
                 </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" onKeyDown={handleKeyDown}>
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    wrappedSubmit(e);
+                  }} 
+                  className="space-y-4" 
+                  onKeyDown={handleKeyDown}
+                >
                   <div>
                     <label htmlFor="title" className="block text-sm font-medium text-gray-700">
                       タイトル
                     </label>
                     <input
                       type="text"
-                      {...register('title', { required: true })}
-                      ref={titleInputRef}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      id="title"
+                      name={titleRef.name}
+                      onChange={titleRef.onChange}
+                      onBlur={titleRef.onBlur}
+                      ref={titleRef.ref}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
+                        errors.title ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                      }`}
                     />
                     {errors.title && (
                       <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
@@ -177,9 +213,15 @@ export default function TaskForm({ isOpen, onClose, onTaskCreated }: TaskFormPro
                     <input
                       type="date"
                       {...register('deadline')}
-                      min={addDays(new Date(), 1).toISOString().split('T')[0]}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      defaultValue={format(addDays(new Date(), 7), 'yyyy-MM-dd')}
+                      min={format(addDays(new Date(), 1), 'yyyy-MM-dd')}
+                      className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm ${
+                        errors.deadline ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                      }`}
                     />
+                    {errors.deadline && (
+                      <p className="mt-1 text-sm text-red-600">{errors.deadline.message}</p>
+                    )}
                   </div>
 
                   <div>
