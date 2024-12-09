@@ -9,6 +9,14 @@ export async function getSubTasks(taskId: number) {
   return response.json();
 }
 
+export async function getSubTaskDetails(subTaskId: number) {
+  const response = await fetch(`${API_BASE_URL}/sub-tasks/${subTaskId}/details`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch sub task details');
+  }
+  return response.json();
+}
+
 export async function createSubTask(taskId: number, data: { title: string; description?: string }) {
   const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/sub-tasks`, {
     method: 'POST',
@@ -120,5 +128,35 @@ export async function deleteActionItem(actionItemId: number) {
   if (!response.ok) {
     throw new Error('Failed to delete action item');
   }
+  return response.json();
+}
+
+export const getActionItems = async () => {
+  const response = await fetch(`${API_BASE_URL}/action_items`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch action items');
+  }
+
+  return response.json();
+};
+
+export async function getActionPlan(actionItemId: number) {
+  const response = await fetch(`${API_BASE_URL}/action-items/${actionItemId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch action item');
+  }
+
   return response.json();
 } 

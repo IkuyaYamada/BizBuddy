@@ -335,4 +335,25 @@ def delete_action_item(action_item_id: int, db: Session = Depends(get_db)):
 
     db.delete(db_action_item)
     db.commit()
-    return {"message": "Action item deleted"} 
+    return {"message": "Action item deleted"}
+
+@app.get("/action-items/{action_item_id}", response_model=ActionItem)
+def get_action_item(action_item_id: int, db: Session = Depends(get_db)):
+    action_item = db.query(ActionItemModel).filter(ActionItemModel.id == action_item_id).first()
+    if not action_item:
+        raise HTTPException(status_code=404, detail="Action item not found")
+    
+    # 関連するタスク、サブタスク、リーフタスクの情報を取得
+    result = {
+        "id": action_item.id,
+        "content": action_item.content,
+        "is_completed": action_item.is_completed,
+        "leaf_task_id": action_item.leaf_task_id,
+        "created_at": action_item.created_at,
+        "updated_at": action_item.updated_at,
+        "task_title": action_item.leaf_task.sub_task.task.title if action_item.leaf_task else "",
+        "subtask_title": action_item.leaf_task.sub_task.title if action_item.leaf_task else "",
+        "leaf_task_title": action_item.leaf_task.title if action_item.leaf_task else ""
+    }
+    
+    return result 

@@ -14,6 +14,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import Timer from '../components/Timer'
 import WorkLogForm from '@/components/WorkLogForm'
 import { ActionPlan } from '@/components/ActionPlan'
+import { DailyLog } from '@/components/DailyLog'
 
 // パネルサイズの保存と読み込み用の関数
 const savePanelLayout = (sizes: number[]) => {
@@ -59,6 +60,7 @@ const tabItems = [
   { name: 'アクションプラン', id: 'action-plan' },
   { name: 'マインドマップ', id: 'mindmap' },
   { name: 'プロトタイプ', id: 'prototype' },
+  { name: 'デイリーログ', id: 'daily-log' },
 ]
 
 // ユーザリティ関数
@@ -110,7 +112,7 @@ export default function Home() {
     fetchTasks()
   }, [])
 
-  // ��ーボードショートカットの処理を追加
+  // キーボードショートカットの処理を追加
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // タスク選択のショートカット (Ctrl + 1-9)
@@ -306,7 +308,8 @@ export default function Home() {
                     { id: 'memos', name: 'メモ' },
                     { id: 'action-plan', name: 'アクションプラン' },
                     { id: 'mindmap', name: 'マインドマップ' },
-                    { id: 'prototype', name: 'プロトタイプ' }
+                    { id: 'prototype', name: 'プロトタイプ' },
+                    { id: 'daily-log', name: 'デイリーログ' }
                   ].map((tab) => (
                     <Tab
                       key={tab.id}
@@ -556,6 +559,11 @@ export default function Home() {
                       <div className="rounded-lg border-4 border-dashed border-gray-200 p-4">
                         <p className="text-center text-gray-500">プロトタイプ機能（開発中）</p>
                       </div>
+                    </div>
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    <div className="py-8">
+                      <DailyLog tasks={tasks} />
                     </div>
                   </Tab.Panel>
                 </Tab.Panels>
