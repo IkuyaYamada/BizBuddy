@@ -394,6 +394,44 @@ export const ActionPlan = ({ tasks, onTaskSelect, selectedTaskId }: ActionPlanPr
     }
   };
 
+  const handleAddToDailyPlan = async (actionItem: ActionItem, subTask: SubTask, leafTask: LeafTask) => {
+    try {
+      // ローカルストレージから既存のアイテムを取得
+      const storageKey = 'daily-plan-items';
+      const savedData = localStorage.getItem(storageKey);
+      let storedItems: { id: number; order: number; taskTitle: string; subTaskTitle: string; leafTaskTitle: string; }[] = [];
+      
+      if (savedData) {
+        storedItems = JSON.parse(savedData);
+      }
+
+      // 既に追加済みの場合は追加しない
+      if (storedItems.some(item => item.id === actionItem.id)) {
+        alert('このアイテムは既に今日のプランに追加されています。');
+        return;
+      }
+
+      // 新しいアイテムを作成
+      const newItem = {
+        id: actionItem.id,
+        order: storedItems.length,
+        taskTitle: tasks.find(t => t.id === selectedTaskId)?.title || '',
+        subTaskTitle: subTask.title,
+        leafTaskTitle: leafTask.title,
+      };
+
+      // 配列に追加
+      storedItems.push(newItem);
+
+      // ローカルストレージに保存
+      localStorage.setItem(storageKey, JSON.stringify(storedItems));
+      alert('アクションアイテムが今日のプランに追加されました。');
+    } catch (error) {
+      console.error('Failed to add to daily plan:', error);
+      alert('アクションアイテムの追加に失敗しました。');
+    }
+  };
+
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
       <div className="mb-4">
@@ -583,12 +621,23 @@ export const ActionPlan = ({ tasks, onTaskSelect, selectedTaskId }: ActionPlanPr
                             )}
                           </FormField>
                         </div>
-                        <button
-                          onClick={() => handleDeleteActionItem(leafTask.id, actionItem.id)}
-                          className="mt-1.5 text-red-600 hover:text-red-700 p-1 rounded-full hover:bg-red-50 flex-shrink-0"
-                        >
-                          <TrashIcon className="h-4 w-4" aria-hidden="true" />
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAddToDailyPlan(actionItem, subTask, leafTask)}
+                            className="mt-1.5 text-blue-600 hover:text-blue-700 p-1 rounded-full hover:bg-blue-50 flex-shrink-0"
+                            title="今日のプランに追加"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteActionItem(leafTask.id, actionItem.id)}
+                            className="mt-1.5 text-red-600 hover:text-red-700 p-1 rounded-full hover:bg-red-50 flex-shrink-0"
+                          >
+                            <TrashIcon className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                     

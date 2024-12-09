@@ -58,9 +58,9 @@ const tabItems = [
   { name: 'タスク', id: 'tasks' },
   { name: 'メモ', id: 'notes' },
   { name: 'アクションプラン', id: 'action-plan' },
+  { name: 'マイリーログ', id: 'daily-log' },
   { name: 'マインドマップ', id: 'mindmap' },
   { name: 'プロトタイプ', id: 'prototype' },
-  { name: 'デイリーログ', id: 'daily-log' },
 ]
 
 // ユーザリティ関数
@@ -81,6 +81,7 @@ export default function Home() {
   const [editingWorkLogId, setEditingWorkLogId] = useState<number | null>(null)
   const [editingWorkLogContent, setEditingWorkLogContent] = useState('')
   const workLogTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [isHeaderExpanded, setIsHeaderExpanded] = useState(false)
 
   const fetchTasks = async () => {
     try {
@@ -115,6 +116,8 @@ export default function Home() {
   // キーボードショートカットの処理を追加
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = typeof window !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
+
       // タスク選択のショートカット (Ctrl + 1-9)
       if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
         const num = parseInt(e.key)
@@ -151,10 +154,28 @@ export default function Home() {
         } else if (e.key.toLowerCase() === 'j') {
           e.preventDefault();
           setSelectedTab(0); // タスクタブのインデックス
+        } else if (isMac && e.key.toLowerCase() === 'a') {
+          e.preventDefault();
+          setSelectedTab(2); // アクションプランタブのインデックス
+        } else if (isMac && e.key.toLowerCase() === 'd') {
+          e.preventDefault();
+          setSelectedTab(3); // デイリーログタブのインデックス
         }
       }
+
+      // アクションプランタブへの移動 (Windows: Ctrl + Alt + A, Mac: Ctrl + A)
+      if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setSelectedTab(2); // アクションプランタブのインデックス
+      }
+
+      // デイリーログタブへの移動 (Windows: Ctrl + Alt + D, Mac: Ctrl + D)
+      if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setSelectedTab(3); // デイリーログタブのインデックス
+      }
+
       // 新規タスク作成のショートカット (Windows: Ctrl + Alt + N, Mac: Ctrl + N)
-      const isMac = typeof window !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
       if ((e.ctrlKey && !isMac && e.altKey && e.key.toLowerCase() === 'n') || 
           (isMac && e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'n')) {
         e.preventDefault();
@@ -248,7 +269,7 @@ export default function Home() {
   const handleWorkLogEdit = (log: WorkLog) => {
     setEditingWorkLogId(log.id)
     setEditingWorkLogContent(log.description)
-    // 次のレンダリングサイクルテキストエリアにフォーカスを当てるため、
+    // のレンダングサイクルテキストエリアにフォーカスを当てるため、
     // useEffectでフォーカス処理を行う
   }
 
@@ -289,45 +310,67 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <header className="mb-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-4">
+        {/* コンパクトヘッダー */}
+        <header className="relative">
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold leading-tight tracking-tight text-gray-900">
-              BizBuddy
-            </h1>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+                title={isHeaderExpanded ? "メニューを閉じる" : "メニューを開く"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d={isHeaderExpanded ? "M6 18L18 6M6 6l12 12" : "M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"} />
+                </svg>
+              </button>
+              <h1 className="text-xl font-semibold text-gray-900">
+                BizBuddy
+              </h1>
+            </div>
             <Timer />
           </div>
         </header>
-        <main>
+
+        <main className={`transition-all duration-300 ${isHeaderExpanded ? 'mt-[200px]' : 'mt-4'}`}>
           <div className="mx-auto">
             <div className="w-full">
               <Tab.Group selectedIndex={selectedTab} onChange={setSelectedTab}>
-                <Tab.List className="flex space-x-1 rounded-xl bg-blue-900/20 p-1">
-                  {[
-                    { id: 'tasks', name: 'タスク' },
-                    { id: 'memos', name: 'メモ' },
-                    { id: 'action-plan', name: 'アクションプラン' },
-                    { id: 'mindmap', name: 'マインドマップ' },
-                    { id: 'prototype', name: 'プロトタイプ' },
-                    { id: 'daily-log', name: 'デイリーログ' }
-                  ].map((tab) => (
-                    <Tab
-                      key={tab.id}
-                      className={({ selected }) =>
-                        classNames(
-                          'w-full rounded-lg py-2.5 text-sm font-medium leading-5',
-                          'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
-                          selected
-                            ? 'bg-white shadow text-blue-700'
-                            : 'text-blue-100 hover:bg-white/[0.12] hover:text-white'
-                        )
-                      }
-                    >
-                      {tab.name}
-                    </Tab>
-                  ))}
-                </Tab.List>
-                <Tab.Panels className="mt-2">
+                {/* 展開可能なタブメニュー */}
+                <div className={`fixed top-[60px] left-0 right-0 bg-white shadow-lg rounded-b-xl transform transition-all duration-300 origin-top z-50 ${
+                  isHeaderExpanded ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0 pointer-events-none'
+                }`}>
+                  <Tab.List className="flex space-x-1 p-2 max-w-7xl mx-auto">
+                    {[
+                      { id: 'tasks', name: 'タスク' },
+                      { id: 'memos', name: 'メモ' },
+                      { id: 'action-plan', name: 'アクションプラン' },
+                      { id: 'daily-log', name: 'デイリーログ' },
+                      { id: 'mindmap', name: 'マインドマップ' },
+                      { id: 'prototype', name: 'プロトタイプ' }
+                    ].map((tab) => (
+                      <Tab
+                        key={tab.id}
+                        className={({ selected }) =>
+                          classNames(
+                            'w-full rounded-lg py-2 text-sm font-medium leading-5',
+                            'ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2',
+                            selected
+                              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow'
+                              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                          )
+                        }
+                        onClick={() => {
+                          setTimeout(() => setIsHeaderExpanded(false), 200);
+                        }}
+                      >
+                        {tab.name}
+                      </Tab>
+                    ))}
+                  </Tab.List>
+                </div>
+
+                <Tab.Panels>
                   <Tab.Panel>
                     <div className="py-6">
                       <PanelGroup 
@@ -549,6 +592,11 @@ export default function Home() {
                   </Tab.Panel>
                   <Tab.Panel>
                     <div className="py-8">
+                      <DailyLog tasks={tasks} />
+                    </div>
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    <div className="py-8">
                       <div className="rounded-lg border-4 border-dashed border-gray-200 p-4">
                         <p className="text-center text-gray-500">マインドマップ機能（開発中）</p>
                       </div>
@@ -559,11 +607,6 @@ export default function Home() {
                       <div className="rounded-lg border-4 border-dashed border-gray-200 p-4">
                         <p className="text-center text-gray-500">プロトタイプ機能（開発中）</p>
                       </div>
-                    </div>
-                  </Tab.Panel>
-                  <Tab.Panel>
-                    <div className="py-8">
-                      <DailyLog tasks={tasks} />
                     </div>
                   </Tab.Panel>
                 </Tab.Panels>
@@ -607,7 +650,7 @@ export default function Home() {
         }}
       />
 
-      {/* 作ログモーダル */}
+      {/* 作業ログモーダル */}
       <WorkLogForm
         isOpen={isWorkLogModalOpen}
         onClose={() => {
