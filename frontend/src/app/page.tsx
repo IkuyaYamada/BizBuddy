@@ -13,7 +13,7 @@ import MemoList from '../components/MemoList'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import Timer from '../components/Timer'
 import WorkLogForm from '@/components/WorkLogForm'
-import TaskBuilder from '@/components/TaskBuilder'
+import { ActionPlan } from '@/components/ActionPlan'
 
 // パネルサイズの保存と読み込み用の関数
 const savePanelLayout = (sizes: number[]) => {
@@ -29,7 +29,7 @@ const loadPanelLayout = (): number[] => {
       return JSON.parse(saved);
     }
   }
-  return [50, 50]; // デフォルト値
+  return [50, 50]; // デォルト値
 };
 
 function formatRemainingTime(deadline: string): string {
@@ -56,7 +56,7 @@ function formatRemainingTime(deadline: string): string {
 const tabItems = [
   { name: 'タスク', id: 'tasks' },
   { name: 'メモ', id: 'notes' },
-  { name: '時計', id: 'timer' },
+  { name: 'アクションプラン', id: 'action-plan' },
   { name: 'マインドマップ', id: 'mindmap' },
   { name: 'プロトタイプ', id: 'prototype' },
 ]
@@ -92,11 +92,11 @@ export default function Home() {
     }
   }
 
-  const handleTaskSelect = (taskId: number) => {
-    setSelectedTaskId(selectedTaskId === taskId ? null : taskId);
+  const handleTaskSelect = (taskId: number | null) => {
+    setSelectedTaskId(taskId === selectedTaskId ? null : taskId);
     setEditingWorkLog(undefined);
     
-    if (selectedTaskId !== taskId) {
+    if (taskId !== null && selectedTaskId !== taskId) {
       setTimeout(() => {
         const textarea = document.querySelector('textarea[name="description"]') as HTMLTextAreaElement;
         if (textarea) {
@@ -110,7 +110,7 @@ export default function Home() {
     fetchTasks()
   }, [])
 
-  // キーボードショートカットの処理を追加
+  // ��ーボードショートカットの処理を追加
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // タスク選択のショートカット (Ctrl + 1-9)
@@ -246,7 +246,7 @@ export default function Home() {
   const handleWorkLogEdit = (log: WorkLog) => {
     setEditingWorkLogId(log.id)
     setEditingWorkLogContent(log.description)
-    // 次のレンダリングサイクルでテキストエリアにフォーカスを当てるため、
+    // 次のレンダリングサイクルテキストエリアにフォーカスを当てるため、
     // useEffectでフォーカス処理を行う
   }
 
@@ -304,7 +304,7 @@ export default function Home() {
                   {[
                     { id: 'tasks', name: 'タスク' },
                     { id: 'memos', name: 'メモ' },
-                    { id: 'builder', name: 'タスクビルダー' },
+                    { id: 'action-plan', name: 'アクションプラン' },
                     { id: 'mindmap', name: 'マインドマップ' },
                     { id: 'prototype', name: 'プロトタイプ' }
                   ].map((tab) => (
@@ -342,7 +342,7 @@ export default function Home() {
                                 onClick={() => setIsTaskFormOpen(true)}
                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                               >
-                                新規タスク作成
+                                新規タス作成
                               </button>
                             </div>
                             <TaskList
@@ -537,46 +537,11 @@ export default function Home() {
                   </Tab.Panel>
                   <Tab.Panel>
                     <div className="py-6">
-                      <PanelGroup 
-                        direction="horizontal"
-                        onLayout={(sizes) => {
-                          savePanelLayout(sizes);
-                          setPanelSizes(sizes);
-                        }}
-                      >
-                        <Panel defaultSize={panelSizes[0]} minSize={30}>
-                          <div>
-                            <div className="flex justify-between items-center mb-4">
-                              <h2 className="text-lg font-medium text-gray-900">タスク一覧</h2>
-                              <button
-                                onClick={() => setIsTaskFormOpen(true)}
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                              >
-                                新規タスク作成
-                              </button>
-                            </div>
-                            <TaskList
-                              tasks={tasks}
-                              onUpdate={fetchTasks}
-                              onTaskSelect={handleTaskSelect}
-                              selectedTaskId={selectedTaskId}
-                            />
-                          </div>
-                        </Panel>
-
-                        <PanelResizeHandle className="w-2 hover:bg-gray-200 transition-colors duration-200" />
-
-                        <Panel defaultSize={panelSizes[1]} minSize={30}>
-                          {selectedTaskId && tasks.find(task => task.id === selectedTaskId) && (
-                            <TaskBuilder task={tasks.find(task => task.id === selectedTaskId)!} />
-                          )}
-                          {!selectedTaskId && (
-                            <div className="py-8 text-center text-gray-500">
-                              タスクを選択してください
-                            </div>
-                          )}
-                        </Panel>
-                      </PanelGroup>
+                      <ActionPlan
+                        tasks={tasks}
+                        onTaskSelect={handleTaskSelect}
+                        selectedTaskId={selectedTaskId}
+                      />
                     </div>
                   </Tab.Panel>
                   <Tab.Panel>
@@ -634,7 +599,7 @@ export default function Home() {
         }}
       />
 
-      {/* 作業ログモーダル */}
+      {/* 作ログモーダル */}
       <WorkLogForm
         isOpen={isWorkLogModalOpen}
         onClose={() => {

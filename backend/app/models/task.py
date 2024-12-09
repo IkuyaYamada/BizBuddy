@@ -19,6 +19,14 @@ task_category = Table(
     Column('category_id', Integer, ForeignKey('categories.id'))
 )
 
+# 中間テーブル: メモとタスクの多対多関連
+memo_task_association = Table(
+    'memo_task_association',
+    Base.metadata,
+    Column('memo_id', Integer, ForeignKey('memos.id')),
+    Column('task_id', Integer, ForeignKey('tasks.id'))
+)
+
 class Task(Base):
     __tablename__ = "tasks"
 
@@ -38,7 +46,8 @@ class Task(Base):
     # リレーションシップ
     categories = relationship("Category", secondary=task_category, back_populates="tasks")
     work_logs = relationship("WorkLog", back_populates="task", cascade="all, delete-orphan")
-    memos = relationship("Memo", secondary=memo_task, back_populates="tasks")
+    memos = relationship("Memo", secondary=memo_task_association, back_populates="tasks")
+    sub_tasks = relationship("SubTask", back_populates="task", cascade="all, delete-orphan")
 
 class Category(Base):
     __tablename__ = "categories"
