@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { format } from "date-fns";
+import { format, parseISO, addHours } from "date-fns";
 import { ja } from "date-fns/locale";
 import { marked } from "marked";
 import { Task } from "@/types/task";
@@ -34,14 +34,32 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
   }, []);
 
   const fetchMemos = async () => {
-    const response = await fetch("http://localhost:8000/memos/");
-    const data = await response.json();
-    const sortedMemos = data.sort((a: Memo, b: Memo) => {
-      const aDate = new Date(a.created_at).getTime();
-      const bDate = new Date(b.created_at).getTime();
-      return bDate - aDate;
-    });
-    setMemos(sortedMemos);
+    try {
+      // キャッシュを無効化するためタイムスタンプを追加
+      const timestamp = new Date().getTime();
+      const response = await fetch(`http://localhost:8000/memos/?_t=${timestamp}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch memos');
+      }
+
+      const data = await response.json();
+      console.log('Fetched memos:', data); // デバッグ用
+
+      // 作成日時（更新日時として使用）の降順でソート
+      const sortedMemos = data.sort((a: Memo, b: Memo) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+      setMemos(sortedMemos);
+    } catch (error) {
+      console.error('Error fetching memos:', error);
+    }
   };
 
   useEffect(() => {
@@ -77,6 +95,15 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
   const startEdit = (memo: Memo) => {
     setEditingMemoId(memo.id);
     setEditingContent(memo.content);
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea.editing-memo') as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+    }, 0);
   };
 
   const handleUpdate = async (memoId: number) => {
@@ -98,10 +125,24 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
       });
 
       if (response.ok) {
+        const updatedMemo = await response.json();
+        
+        const updatedMemos = memos.map(m => 
+          m.id === memoId 
+            ? updatedMemo
+            : m
+        );
+        
+        const sortedMemos = updatedMemos.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        setMemos(sortedMemos);
         setEditingMemoId(null);
         setEditingContent("");
-        fetchMemos();
         onUpdate();
+      } else {
+        console.error('Failed to update memo:', await response.text());
       }
     } catch (error) {
       console.error("Error updating memo:", error);
@@ -145,7 +186,7 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
     try {
       // 作業ログを作成
       const now = new Date();
-      // JSTのオフセットを追加（UTC+9）
+      // JSTのオセットを追加（UTC+9）
       now.setHours(now.getHours() + 9);
 
       const workLogResponse = await fetch(
@@ -195,6 +236,26 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
     }
   };
 
+  const handleUnlinkTask = (memo: Memo, taskId: number) => {
+    if (confirm("このタスクとの関連付けを解除しますか？")) {
+      fetch(`http://localhost:8000/memos/${memo.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: memo.content,
+          task_ids: memo.task_ids.filter(id => id !== taskId),
+        }),
+      }).then((response) => {
+        if (response.ok) {
+          fetchMemos();
+          onUpdate();
+        }
+      });
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <form onSubmit={handleSubmit} className="mb-2">
@@ -222,7 +283,7 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
           type="submit"
           className="w-full px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
-          メモを追加
+          モを追加
         </button>
         */}
       </form>
@@ -232,7 +293,7 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
           <div key={memo.id} className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-start mb-2">
               <div className="text-sm text-gray-500">
-                {format(new Date(memo.created_at), "yyyy/MM/dd HH:mm", {
+                {format(addHours(new Date(memo.created_at), 9), "yyyy/MM/dd HH:mm", {
                   locale: ja,
                 })}
               </div>
@@ -257,12 +318,6 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
                   </>
                 ) : (
                   <>
-                    <button
-                      onClick={() => startEdit(memo)}
-                      className="text-xs text-blue-600 hover:text-blue-900"
-                    >
-                      編集
-                    </button>
                     <button
                       onClick={() => {
                         setSelectedMemoId(memo.id);
@@ -294,23 +349,23 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
             {editingMemoId === memo.id ? (
               <textarea
                 value={editingContent}
-                onChange={(e) => setEditingContent(e.target.value)}
-                onKeyDown={(e) => handleKeyDown(e, memo.id)}
-                onInput={(e) => {
-                  const textarea = e.target as HTMLTextAreaElement;
-                  textarea.style.height = "auto";
-                  textarea.style.height = textarea.scrollHeight + "px";
+                onChange={(e) => {
+                  setEditingContent(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
                 }}
-                autoFocus
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                onKeyDown={(e) => handleKeyDown(e, memo.id)}
+                className="w-full prose prose-sm max-w-none px-0 py-0 border-0 focus:outline-none focus:ring-0 resize-none editing-memo bg-transparent"
                 style={{
                   minHeight: "4.5rem",
                   maxHeight: "45rem",
+                  overflow: "hidden"
                 }}
               />
             ) : (
               <div
-                className="prose prose-sm max-w-none"
+                className="prose prose-sm max-w-none cursor-pointer hover:bg-gray-50 rounded px-1"
+                onClick={() => startEdit(memo)}
                 dangerouslySetInnerHTML={{
                   __html: marked(memo.content.replace(/\n/g, "  \n")),
                 }}
@@ -335,36 +390,13 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
                   </span>
                   {memo.task_ids.map((taskId) => {
                     const task = tasks.find((t) => t.id === taskId);
-                    console.log("Rendering task:", { taskId, task }); // デバッグ用
                     return task ? (
                       <div key={taskId} className="flex items-center gap-1">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-blue-100 text-blue-800">
                           {task.title}
                         </span>
                         <button
-                          onClick={() => {
-                            if (
-                              confirm("このタスクとの関連付けを解除しますか？")
-                            ) {
-                              fetch(`http://localhost:8000/memos/${memo.id}`, {
-                                method: "PUT",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
-                                  content: memo.content,
-                                  task_ids: memo.task_ids.filter(
-                                    (id) => id !== taskId
-                                  ),
-                                }),
-                              }).then((response) => {
-                                if (response.ok) {
-                                  fetchMemos();
-                                  onUpdate();
-                                }
-                              });
-                            }
-                          }}
+                          onClick={() => handleUnlinkTask(memo, taskId)}
                           className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                           aria-label="関連付けを解除"
                         >

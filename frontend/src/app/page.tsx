@@ -147,9 +147,10 @@ export default function Home() {
           setSelectedTab(0); // タスクタブのインデックス
         }
       }
-      // 新規タスク作成のショートカット (Ctrl + Alt + N または Ctrl + N for Mac)
-      if ((e.ctrlKey && e.altKey && e.key.toLowerCase() === 'n') || 
-          (navigator.platform.toLowerCase().includes('mac') && e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'n')) {
+      // 新規タスク作成のショートカット (Windows: Ctrl + Alt + N, Mac: Ctrl + N)
+      const isMac = typeof window !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
+      if ((e.ctrlKey && !isMac && e.altKey && e.key.toLowerCase() === 'n') || 
+          (isMac && e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'n')) {
         e.preventDefault();
         setSelectedTab(0); // タスクタブに切り替え
         setIsTaskFormOpen(true);

@@ -35,7 +35,7 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
     '完了': 4
   }
 
-  // ステータスの��示名マッピング
+  // ステータスの表示名マッピング
   const statusDisplay: { [key: string]: string } = {
     '進行中': '進行中',
     'casual': 'casual',
@@ -214,13 +214,13 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                           <span className="w-8 text-center">{task.priority}</span>
                           <div className="flex flex-col ml-1">
                             <button
-                              onClick={() => handleUpdateTask(task.id, { priority: Math.min(100, task.priority + 5) })}
+                              onClick={() => handleUpdateTask(task.id, { priority: Math.min(100, Math.round(task.priority * 1.3)) })}
                               className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-t px-1 text-xs"
                             >
                               ▲
                             </button>
                             <button
-                              onClick={() => handleUpdateTask(task.id, { priority: Math.max(1, task.priority - 5) })}
+                              onClick={() => handleUpdateTask(task.id, { priority: Math.max(1, Math.round(task.priority / 2)) })}
                               className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-b px-1 text-xs"
                             >
                               ▼

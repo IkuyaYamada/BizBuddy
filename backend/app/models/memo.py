@@ -23,7 +23,7 @@ class Memo(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(String)
-    created_at = Column(DateTime, default=get_jst_now)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     # リレーションシップ
     tasks = relationship("Task", secondary=memo_task, back_populates="memos")

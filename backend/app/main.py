@@ -11,6 +11,7 @@ from .schemas.work_log import WorkLog, WorkLogCreate
 from .database import engine, get_db
 from datetime import datetime
 import logging
+import pytz
 
 # ロガーの設定
 logger = logging.getLogger("bizbuddy")
@@ -77,7 +78,8 @@ def update_task(task_id: int, task: TaskCreate, db: Session = Depends(get_db)):
     for key, value in task.dict().items():
         setattr(db_task, key, value)
     
-    db_task.last_updated = datetime.utcnow()
+    jst = pytz.timezone('Asia/Tokyo')
+    db_task.last_updated = datetime.now(jst)
     db.commit()
     db.refresh(db_task)
     return db_task
@@ -94,7 +96,10 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
 
 @app.post("/memos/", response_model=Memo)
 def create_memo(memo: MemoCreate, db: Session = Depends(get_db)):
-    db_memo = MemoModel(content=memo.content)
+    db_memo = MemoModel(
+        content=memo.content,
+        created_at=datetime.utcnow()
+    )
     db.add(db_memo)
     db.commit()
     db.refresh(db_memo)
@@ -119,9 +124,12 @@ def update_memo(memo_id: int, memo: MemoCreate, db: Session = Depends(get_db)):
     if not db_memo:
         raise HTTPException(status_code=404, detail="Memo not found")
     
-    db_memo.content = memo.content
+    # コンテンツが変更された場合のみ時刻を更新
+    if db_memo.content != memo.content:
+        db_memo.content = memo.content
+        db_memo.created_at = datetime.utcnow()
     
-    # タスクの関連付けを更新
+    # タスクの関連付けを更新（時刻は更新しない）
     if memo.task_ids:
         # 既存のタスクをクリア
         db_memo.tasks = []
