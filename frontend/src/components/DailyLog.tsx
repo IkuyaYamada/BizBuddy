@@ -516,31 +516,9 @@ export const DailyLog = ({ tasks, selectedDate = new Date() }: DailyLogProps) =>
                                   {leafTask.action_items?.map(actionItem => (
                                     <div
                                       key={actionItem.id}
-                                      className="flex items-center gap-3 px-3 py-2.5 hover:bg-white rounded-md transition-colors"
+                                      className="flex items-center justify-between px-3 py-2.5 hover:bg-white rounded-md transition-colors"
                                     >
-                                      <input
-                                        type="checkbox"
-                                        checked={actionItem.is_completed}
-                                        onChange={async () => {
-                                          try {
-                                            await api.updateActionItem(actionItem.id, {
-                                              content: actionItem.content,
-                                              is_completed: !actionItem.is_completed
-                                            });
-                                            setSelectedActionItems(prev =>
-                                              prev.map(item =>
-                                                item.id === actionItem.id
-                                                  ? { ...item, is_completed: !item.is_completed }
-                                                  : item
-                                              )
-                                            );
-                                          } catch (error) {
-                                            console.error('Failed to update action item:', error);
-                                          }
-                                        }}
-                                        className="h-4 w-4 text-emerald-600 rounded border-gray-300"
-                                      />
-                                      <span className={`text-sm flex-1 ${actionItem.is_completed ? 'line-through text-gray-500' : ''}`}>
+                                      <span className="text-sm flex-1">
                                         {actionItem.content}
                                       </span>
                                       <button

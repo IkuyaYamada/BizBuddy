@@ -118,6 +118,15 @@ export const ActionPlan = ({
   const [deletingLeafTaskId, setDeletingLeafTaskId] = useState<number | null>(
     null
   );
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: 'success' | 'error';
+    visible: boolean;
+  }>({
+    message: '',
+    type: 'success',
+    visible: false,
+  });
 
   // タスクを並び替え
   const sortedTasks = useMemo(() => {
@@ -465,14 +474,29 @@ export const ActionPlan = ({
     }
   };
 
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({
+      message,
+      type,
+      visible: true,
+    });
+
+    // 3秒後に通知を非表示にする
+    setTimeout(() => {
+      setNotification(prev => ({
+        ...prev,
+        visible: false,
+      }));
+    }, 3000);
+  };
+
   const handleAddToDailyPlan = async (
     actionItem: ActionItem,
     subTask: SubTask,
     leafTask: LeafTask
   ) => {
     try {
-      // ローカルストレージから既存のアイテムを取得
-      const storageKey = "daily-plan-items";
+      const storageKey = 'daily-plan-items';
       const savedData = localStorage.getItem(storageKey);
       let storedItems: {
         id: number;
@@ -486,35 +510,48 @@ export const ActionPlan = ({
         storedItems = JSON.parse(savedData);
       }
 
-      // 既に追加済みの場合は追加しない
-      if (storedItems.some((item) => item.id === actionItem.id)) {
-        alert("このアイテムは既に今日のプランに追加されています。");
+      if (storedItems.some(item => item.id === actionItem.id)) {
+        showNotification('このアイテムは既に追加されています 👀');
         return;
       }
 
-      // 新しいアイテムを作成
       const newItem = {
         id: actionItem.id,
         order: storedItems.length,
-        taskTitle: tasks.find((t) => t.id === selectedTaskId)?.title || "",
+        taskTitle: tasks.find(t => t.id === selectedTaskId)?.title || '',
         subTaskTitle: subTask.title,
         leafTaskTitle: leafTask.title,
       };
 
-      // 配列に追加
       storedItems.push(newItem);
-
-      // ローカルストレージに保存
       localStorage.setItem(storageKey, JSON.stringify(storedItems));
-      alert("アクションアイテムが今日のプランに追加されました。");
+      showNotification('今日のプランに追加しました ✨');
     } catch (error) {
-      console.error("Failed to add to daily plan:", error);
-      alert("アクションアイテムの追加に失敗しました。");
+      console.error('Failed to add to daily plan:', error);
+      showNotification('追加に失敗しました 😢', 'error');
     }
   };
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
+      <div
+        className={`fixed top-4 right-4 transition-all duration-300 transform ${
+          notification.visible
+            ? 'translate-y-0 opacity-100'
+            : '-translate-y-4 opacity-0 pointer-events-none'
+        }`}
+      >
+        <div
+          className={`px-4 py-2 rounded-lg shadow-lg ${
+            notification.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
+          <p className="text-sm font-medium">{notification.message}</p>
+        </div>
+      </div>
+
       <div className="mb-6">
         <select
           value={selectedTaskId || ""}
@@ -785,6 +822,17 @@ export const ActionPlan = ({
                               </FormField>
                             </div>
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() =>
+                                  handleAddToDailyPlan(actionItem, subTask, leafTask)
+                                }
+                                className="mt-1.5 text-emerald-600 hover:text-emerald-800 p-1 rounded-lg hover:bg-emerald-50 transition-colors"
+                                title="今日のプランに追加"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                              </button>
                               <button
                                 onClick={() =>
                                   handleDeleteActionItem(

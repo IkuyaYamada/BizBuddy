@@ -154,23 +154,23 @@ export default function Home() {
         } else if (e.key.toLowerCase() === 'j') {
           e.preventDefault();
           setSelectedTab(0); // タスクタブのインデックス
-        } else if (isMac && e.key.toLowerCase() === 'a') {
+        } else if (isMac && e.key.toLowerCase() === 'k') {
           e.preventDefault();
           setSelectedTab(2); // アクションプランタブのインデックス
-        } else if (isMac && e.key.toLowerCase() === 'd') {
+        } else if (isMac && e.key.toLowerCase() === 'l') {
           e.preventDefault();
           setSelectedTab(3); // デイリーログタブのインデックス
         }
       }
 
-      // アクションプランタブへの移動 (Windows: Ctrl + Alt + A, Mac: Ctrl + A)
-      if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === 'a') {
+      // アクションプランタブへの移動 (Windows: Ctrl + Alt + K, Mac: Ctrl + K)
+      if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setSelectedTab(2); // アクションプランタブのインデックス
       }
 
-      // デイリーログタブへの移動 (Windows: Ctrl + Alt + D, Mac: Ctrl + D)
-      if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === 'd') {
+      // デイリーログタブへの移動 (Windows: Ctrl + Alt + L, Mac: Ctrl + L)
+      if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         setSelectedTab(3); // デイリーログタブのインデックス
       }
