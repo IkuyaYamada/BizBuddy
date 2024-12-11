@@ -12,6 +12,8 @@ from .database import engine, get_db
 from datetime import datetime
 import logging
 import pytz
+from .schemas.action_plan import SubTask, SubTaskCreate, LeafTask, LeafTaskCreate, ActionItem, ActionItemCreate
+from .models.action_plan import SubTask as SubTaskModel, LeafTask as LeafTaskModel, ActionItem as ActionItemModel
 
 # ロガーの設定
 logger = logging.getLogger("bizbuddy")
@@ -223,4 +225,135 @@ def delete_work_log(task_id: int, work_log_id: int, db: Session = Depends(get_db
     
     db.delete(db_work_log)
     db.commit()
-    return {"message": "Work log deleted successfully"} 
+    return {"message": "Work log deleted successfully"}
+
+# アクションプラン関連のエンドポイント
+@app.get("/tasks/{task_id}/sub-tasks", response_model=List[SubTask])
+def get_sub_tasks(task_id: int, db: Session = Depends(get_db)):
+    task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task.sub_tasks
+
+@app.post("/tasks/{task_id}/sub-tasks", response_model=SubTask)
+def create_sub_task(task_id: int, sub_task: SubTaskCreate, db: Session = Depends(get_db)):
+    task = db.query(TaskModel).filter(TaskModel.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    db_sub_task = SubTaskModel(**sub_task.dict(), task_id=task_id)
+    db.add(db_sub_task)
+    db.commit()
+    db.refresh(db_sub_task)
+    return db_sub_task
+
+@app.put("/sub-tasks/{sub_task_id}", response_model=SubTask)
+def update_sub_task(sub_task_id: int, sub_task: SubTaskCreate, db: Session = Depends(get_db)):
+    db_sub_task = db.query(SubTaskModel).filter(SubTaskModel.id == sub_task_id).first()
+    if not db_sub_task:
+        raise HTTPException(status_code=404, detail="Sub task not found")
+
+    for key, value in sub_task.dict().items():
+        setattr(db_sub_task, key, value)
+    db.commit()
+    db.refresh(db_sub_task)
+    return db_sub_task
+
+@app.delete("/sub-tasks/{sub_task_id}")
+def delete_sub_task(sub_task_id: int, db: Session = Depends(get_db)):
+    db_sub_task = db.query(SubTaskModel).filter(SubTaskModel.id == sub_task_id).first()
+    if not db_sub_task:
+        raise HTTPException(status_code=404, detail="Sub task not found")
+
+    db.delete(db_sub_task)
+    db.commit()
+    return {"message": "Sub task deleted"}
+
+@app.post("/sub-tasks/{sub_task_id}/leaf-tasks", response_model=LeafTask)
+def create_leaf_task(sub_task_id: int, leaf_task: LeafTaskCreate, db: Session = Depends(get_db)):
+    db_sub_task = db.query(SubTaskModel).filter(SubTaskModel.id == sub_task_id).first()
+    if not db_sub_task:
+        raise HTTPException(status_code=404, detail="Sub task not found")
+
+    db_leaf_task = LeafTaskModel(**leaf_task.dict(), sub_task_id=sub_task_id)
+    db.add(db_leaf_task)
+    db.commit()
+    db.refresh(db_leaf_task)
+    return db_leaf_task
+
+@app.put("/leaf-tasks/{leaf_task_id}", response_model=LeafTask)
+def update_leaf_task(leaf_task_id: int, leaf_task: LeafTaskCreate, db: Session = Depends(get_db)):
+    db_leaf_task = db.query(LeafTaskModel).filter(LeafTaskModel.id == leaf_task_id).first()
+    if not db_leaf_task:
+        raise HTTPException(status_code=404, detail="Leaf task not found")
+
+    for key, value in leaf_task.dict().items():
+        setattr(db_leaf_task, key, value)
+    db.commit()
+    db.refresh(db_leaf_task)
+    return db_leaf_task
+
+@app.delete("/leaf-tasks/{leaf_task_id}")
+def delete_leaf_task(leaf_task_id: int, db: Session = Depends(get_db)):
+    db_leaf_task = db.query(LeafTaskModel).filter(LeafTaskModel.id == leaf_task_id).first()
+    if not db_leaf_task:
+        raise HTTPException(status_code=404, detail="Leaf task not found")
+
+    db.delete(db_leaf_task)
+    db.commit()
+    return {"message": "Leaf task deleted"}
+
+@app.post("/leaf-tasks/{leaf_task_id}/action-items", response_model=ActionItem)
+def create_action_item(leaf_task_id: int, action_item: ActionItemCreate, db: Session = Depends(get_db)):
+    db_leaf_task = db.query(LeafTaskModel).filter(LeafTaskModel.id == leaf_task_id).first()
+    if not db_leaf_task:
+        raise HTTPException(status_code=404, detail="Leaf task not found")
+
+    db_action_item = ActionItemModel(**action_item.dict(), leaf_task_id=leaf_task_id)
+    db.add(db_action_item)
+    db.commit()
+    db.refresh(db_action_item)
+    return db_action_item
+
+@app.put("/action-items/{action_item_id}", response_model=ActionItem)
+def update_action_item(action_item_id: int, action_item: ActionItemCreate, db: Session = Depends(get_db)):
+    db_action_item = db.query(ActionItemModel).filter(ActionItemModel.id == action_item_id).first()
+    if not db_action_item:
+        raise HTTPException(status_code=404, detail="Action item not found")
+
+    for key, value in action_item.dict().items():
+        setattr(db_action_item, key, value)
+    db.commit()
+    db.refresh(db_action_item)
+    return db_action_item
+
+@app.delete("/action-items/{action_item_id}")
+def delete_action_item(action_item_id: int, db: Session = Depends(get_db)):
+    db_action_item = db.query(ActionItemModel).filter(ActionItemModel.id == action_item_id).first()
+    if not db_action_item:
+        raise HTTPException(status_code=404, detail="Action item not found")
+
+    db.delete(db_action_item)
+    db.commit()
+    return {"message": "Action item deleted"}
+
+@app.get("/action-items/{action_item_id}", response_model=ActionItem)
+def get_action_item(action_item_id: int, db: Session = Depends(get_db)):
+    action_item = db.query(ActionItemModel).filter(ActionItemModel.id == action_item_id).first()
+    if not action_item:
+        raise HTTPException(status_code=404, detail="Action item not found")
+    
+    # 関連するタスク、サブタスク、リーフタスクの情報を取得
+    result = {
+        "id": action_item.id,
+        "content": action_item.content,
+        "is_completed": action_item.is_completed,
+        "leaf_task_id": action_item.leaf_task_id,
+        "created_at": action_item.created_at,
+        "updated_at": action_item.updated_at,
+        "task_title": action_item.leaf_task.sub_task.task.title if action_item.leaf_task else "",
+        "subtask_title": action_item.leaf_task.sub_task.title if action_item.leaf_task else "",
+        "leaf_task_title": action_item.leaf_task.title if action_item.leaf_task else ""
+    }
+    
+    return result 

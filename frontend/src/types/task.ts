@@ -20,4 +20,33 @@ export interface Task {
   created_at: string
   last_updated: string
   work_logs?: WorkLog[]
+}
+
+export interface SubTask {
+  id: number;
+  task_id: number;
+  title: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  leaf_tasks?: LeafTask[];
+}
+
+export interface LeafTask {
+  id: number;
+  sub_task_id: number;
+  title: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  action_items?: ActionItem[];
+}
+
+export interface ActionItem {
+  id: number;
+  leaf_task_id: number;
+  content: string;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
 } 

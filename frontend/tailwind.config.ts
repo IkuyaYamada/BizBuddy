@@ -12,6 +12,16 @@ export default {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
+      fontFamily: {
+        sans: [
+          'Hiragino Sans',
+          'Hiragino Kaku Gothic ProN',
+          'ヒラギノ角ゴ ProN W3',
+          'メイリオ',
+          'Meiryo',
+          'sans-serif'
+        ],
+      },
     },
   },
   plugins: [],
