@@ -159,4 +159,95 @@ export async function getActionPlan(actionItemId: number) {
   }
 
   return response.json();
+}
+
+// 階層型タスク関連のAPI
+export async function getHierarchicalTasks() {
+  const response = await fetch(`${API_BASE_URL}/hierarchical-tasks/`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch hierarchical tasks');
+  }
+  return response.json();
+}
+
+export async function createHierarchicalTask(data: {
+  title: string;
+  description?: string;
+  is_completed?: boolean;
+  parent_id?: number;
+  level: number;
+  deadline?: string;
+  priority?: number;
+}) {
+  const response = await fetch(`${API_BASE_URL}/hierarchical-tasks/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create hierarchical task');
+  }
+  return response.json();
+}
+
+export async function updateHierarchicalTask(taskId: number, data: {
+  title: string;
+  description?: string;
+  is_completed?: boolean;
+  parent_id?: number;
+  level: number;
+  deadline?: string;
+  priority?: number;
+}) {
+  const response = await fetch(`${API_BASE_URL}/hierarchical-tasks/${taskId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update hierarchical task');
+  }
+  return response.json();
+}
+
+export async function deleteHierarchicalTask(taskId: number) {
+  const response = await fetch(`${API_BASE_URL}/hierarchical-tasks/${taskId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to delete hierarchical task');
+  }
+  return response.json();
+}
+
+// タスク更新のAPI関数を追加
+export async function updateTask(taskId: number, data: {
+  title: string;
+  description: string;
+  motivation: number;
+  priority: number;
+  deadline?: string;
+  estimated_time?: number;
+  priority_score: number;
+  motivation_score: number;
+  status: string;
+  created_at: string;
+  last_updated: string;
+  work_logs?: any[];
+}) {
+  const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to update task');
+  }
+  return response.json();
 } 

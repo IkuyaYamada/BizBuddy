@@ -30,16 +30,18 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
   const statusOrder = {
     '進行中': 0,
     '未着手': 1,
-    'casual': 2,
-    'backlog': 3,
-    '完了': 4
+    'on hold': 2,
+    'casual': 3,
+    'backlog': 4,
+    '完了': 5
   }
 
   // ステータスの表示名マッピング
   const statusDisplay: { [key: string]: string } = {
     '進行中': '進行中',
-    'casual': 'casual',
     '未着手': '未着手',
+    'on hold': 'on hold',
+    'casual': 'casual',
     'backlog': 'backlog',
     '完了': '完了'
   };
@@ -259,6 +261,7 @@ export default function TaskList({ tasks, onUpdate, onTaskSelect, selectedTaskId
                         >
                           <option value="未着手">todo</option>
                           <option value="進行中">in progress</option>
+                          <option value="on hold">on hold</option>
                           <option value="casual">casual</option>
                           <option value="backlog">backlog</option>
                           <option value="完了">done</option>

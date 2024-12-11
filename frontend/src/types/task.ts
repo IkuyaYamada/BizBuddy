@@ -20,6 +20,7 @@ export interface Task {
   created_at: string
   last_updated: string
   work_logs?: WorkLog[]
+  parent_id?: number
 }
 
 export interface SubTask {

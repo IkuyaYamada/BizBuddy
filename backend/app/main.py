@@ -14,6 +14,7 @@ import logging
 import pytz
 from .schemas.action_plan import SubTask, SubTaskCreate, LeafTask, LeafTaskCreate, ActionItem, ActionItemCreate
 from .models.action_plan import SubTask as SubTaskModel, LeafTask as LeafTaskModel, ActionItem as ActionItemModel
+from app.routers import hierarchical_tasks
 
 # ロガーの設定
 logger = logging.getLogger("bizbuddy")
@@ -357,3 +358,5 @@ def get_action_item(action_item_id: int, db: Session = Depends(get_db)):
     }
     
     return result 
+
+app.include_router(hierarchical_tasks.router, tags=["hierarchical_tasks"])

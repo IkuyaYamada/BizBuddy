@@ -15,6 +15,8 @@ import Timer from '../components/Timer'
 import WorkLogForm from '@/components/WorkLogForm'
 import { ActionPlan } from '@/components/ActionPlan'
 import { DailyLog } from '@/components/DailyLog'
+import { HierarchicalTaskView } from '@/components/HierarchicalTaskView'
+import { DailyTaskScheduler } from '@/components/DailyTaskScheduler'
 
 // パネルサイズの保存と読み込み用の関数
 const savePanelLayout = (sizes: number[]) => {
@@ -59,6 +61,7 @@ const tabItems = [
   { name: 'メモ', id: 'notes' },
   { name: 'アクションプラン', id: 'action-plan' },
   { name: 'マイリーログ', id: 'daily-log' },
+  { name: '階層型タスク', id: 'hierarchical-tasks' },
   { name: 'マインドマップ', id: 'mindmap' },
   { name: 'プロトタイプ', id: 'prototype' },
 ]
@@ -144,23 +147,16 @@ export default function Home() {
         } else if (e.key === 'm') {
           e.preventDefault();
           setSelectedTab(1); // メモタブのインデックス
-          // メモタブに切り替わった後、少し遅延してフォーカスを当てる
-          setTimeout(() => {
-            const memoTextarea = document.querySelector('textarea[placeholder="メモを入力..."]') as HTMLTextAreaElement;
-            if (memoTextarea) {
-              memoTextarea.focus();
-            }
-          }, 0);
         } else if (e.key.toLowerCase() === 'j') {
           e.preventDefault();
           setSelectedTab(0); // タスクタブのインデックス
-        } else if (isMac && e.key.toLowerCase() === 'k') {
-          e.preventDefault();
-          setSelectedTab(2); // アクションプランタブのインデックス
-        } else if (isMac && e.key.toLowerCase() === 'l') {
-          e.preventDefault();
-          setSelectedTab(3); // デイリーログタブのインデックス
         }
+      }
+
+      // 階層型タスクタブへの移動 (Ctrl + Alt + O)
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        setSelectedTab(4); // 階層型タスクタブのインデックス
       }
 
       // アクションプランタブへの移動 (Windows: Ctrl + Alt + K, Mac: Ctrl + K)
@@ -173,14 +169,6 @@ export default function Home() {
       if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         setSelectedTab(3); // デイリーログタブのインデックス
-      }
-
-      // 新規タスク作成のショートカット (Windows: Ctrl + Alt + N, Mac: Ctrl + N)
-      if ((e.ctrlKey && !isMac && e.altKey && e.key.toLowerCase() === 'n') || 
-          (isMac && e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'n')) {
-        e.preventDefault();
-        setSelectedTab(0); // タスクタブに切り替え
-        setIsTaskFormOpen(true);
       }
     };
 
@@ -240,7 +228,7 @@ export default function Home() {
     }
   }
 
-  // タブ切り替えのキーボードショートカット
+  // タブ切り替えキーボードショートカット
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
@@ -346,6 +334,7 @@ export default function Home() {
                       { id: 'memos', name: 'メモ' },
                       { id: 'action-plan', name: 'アクションプラン' },
                       { id: 'daily-log', name: 'デイリーログ' },
+                      { id: 'hierarchical-tasks', name: '階層型タスク' },
                       { id: 'mindmap', name: 'マインドマップ' },
                       { id: 'prototype', name: 'プロトタイプ' }
                     ].map((tab) => (
@@ -388,7 +377,7 @@ export default function Home() {
                                 onClick={() => setIsTaskFormOpen(true)}
                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                               >
-                                新規タス作成
+                                新規タスク作成
                               </button>
                             </div>
                             <TaskList
@@ -472,7 +461,7 @@ export default function Home() {
                                           type="submit"
                                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                         >
-                                          記録
+                                          録
                                         </button>
                                       </div>
                                     </form>
@@ -593,6 +582,14 @@ export default function Home() {
                   <Tab.Panel>
                     <div className="py-8">
                       <DailyLog tasks={tasks} />
+                    </div>
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    <div className="py-8">
+                      <HierarchicalTaskView
+                        tasks={tasks}
+                        onUpdate={fetchTasks}
+                      />
                     </div>
                   </Tab.Panel>
                   <Tab.Panel>
