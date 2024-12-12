@@ -22,6 +22,7 @@ export interface Task {
   last_updated: string
   work_logs?: WorkLog[]
   parent_id?: number
+  hierarchy_path?: string[]
 }
 
 export interface SubTask {

@@ -10,6 +10,7 @@ const statusOrder = {
   'on hold': 2,
   'casual': 3,
   'backlog': 4,
+  '完了': 5
 };
 
 // IndexedDB設定
@@ -104,17 +105,17 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     );
 
     return tasksWithOrder.sort((a, b) => {
-      // まずステータスで並び替え（ただし完了状態は考慮しない）
+      // まずステータスで並び替え
       const taskA = tasks.find(t => t.id === a.id);
       const taskB = tasks.find(t => t.id === b.id);
-      const statusA = taskA?.status === '完了' ? taskA.previous_status || '未着手' : (taskA?.status || '未着手');
-      const statusB = taskB?.status === '完了' ? taskB.previous_status || '未着手' : (taskB?.status || '未着手');
+      const statusA = taskA?.status || '未着手';
+      const statusB = taskB?.status || '未着手';
       
-      const orderA = statusOrder[statusA as keyof typeof statusOrder];
-      const orderB = statusOrder[statusB as keyof typeof statusOrder];
+      const orderA = statusOrder[statusA as keyof typeof statusOrder] ?? 999;
+      const orderB = statusOrder[statusB as keyof typeof statusOrder] ?? 999;
       
       if (orderA !== orderB) {
-        return (orderA ?? 999) - (orderB ?? 999);
+        return orderA - orderB;
       }
 
       // 次に表示順序で並び替え
@@ -150,15 +151,30 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
       return acc;
     }, {} as Record<string | number, HierarchicalTask[]>);
 
-    // 各グループ内でソート（完了したタスクを下に）
-    Object.values(tasksByParent).forEach(group => {
+    // 各グループ内でソート
+    Object.entries(tasksByParent).forEach(([parentId, group]) => {
       group.sort((a, b) => {
-        // まず完了状態で比較
-        if (a.is_completed !== b.is_completed) {
-          return a.is_completed ? 1 : -1;
+        // まずステータスで並び替え
+        const taskA = tasks.find(t => t.id === a.id);
+        const taskB = tasks.find(t => t.id === b.id);
+        const statusA = taskA?.status || '未着手';
+        const statusB = taskB?.status || '未着手';
+        
+        const orderA = statusOrder[statusA as keyof typeof statusOrder] ?? 999;
+        const orderB = statusOrder[statusB as keyof typeof statusOrder] ?? 999;
+        
+        if (orderA !== orderB) {
+          return orderA - orderB;
         }
-        // 次にposition値で比較（nullやundefinedの場合は0として扱う）
-        return (a.position || 0) - (b.position || 0);
+
+        // ルートレベルのタスクは既存の並び順を維持
+        if (parentId === 'root') {
+          // position値で比較（nullやundefinedの場合は0として扱う）
+          return (a.position || 0) - (b.position || 0);
+        }
+
+        // サブタスク以下はタスクIDの降順でソート
+        return b.id - a.id;
       });
     });
 
@@ -212,13 +228,15 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
         level: 0,
         created_at: task.created_at,
         updated_at: task.last_updated,
-        priority: task.priority
+        priority: task.priority,
+        status: task.status,
+        previous_status: task.previous_status
       }));
 
       // 第一階層のタスクをソート
       const sortedMainTasks = await sortMainTasks(mainTasks);
       
-      // すべてのタスクを組み合わせてツリー構造に整理（重複を防ぐ）
+      // すべてのタ��クを組み合わせてツリー構造に整理（重複を防ぐ）
       const allTasks = Array.from(
         new Map([...sortedMainTasks, ...data].map(task => [task.id, task])).values()
       );
@@ -415,7 +433,7 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     };
   }, [fetchTasks]);
 
-  // ドラッグ＆ドロップ時の順序更新
+  // ドラッグ＆ドロップ時の���序更新
   const handleTaskMove = useCallback(async (taskId: number, targetIndex: number, newPosition?: number) => {
     try {
       if (newPosition !== undefined) {

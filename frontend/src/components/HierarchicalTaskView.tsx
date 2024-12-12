@@ -189,7 +189,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
         setEditingTaskId(newTask.id);
         setEditingContent(newTask.title);
       } else {
-        // ルートタスクが1つもな��合は、新しいルートタスクを作成
+        // ルートタスクが1つもな��場合は、新しいルートタスクを作成
         const newRootTask = await addTask(undefined, 0);
         const newSubTask = await addTask(newRootTask.id, 1);
         setExpandedTasks(prev => {
@@ -474,6 +474,19 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     }
   };
 
+  // タスクの展開状態を切り替える
+  const handleToggleExpand = (taskId: number) => {
+    setExpandedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -510,21 +523,11 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
                   key={task.id}
                   task={task}
                   allTasks={hierarchicalTasks}
-                  onToggleExpand={() => {
-                    setExpandedTasks(prev => {
-                      const next = new Set(prev);
-                      if (next.has(task.id)) {
-                        next.delete(task.id);
-                      } else {
-                        next.add(task.id);
-                      }
-                      return next;
-                    });
-                  }}
-                  onToggleComplete={handleToggleComplete}
-                  onEditStart={handleEditStart}
+                  onToggleExpand={() => handleToggleExpand(task.id)}
+                  onToggleComplete={(taskId) => handleToggleComplete(taskId)}
+                  onEditStart={(task) => handleEditStart(task)}
                   onEditSave={handleEditSave}
-                  onAddSubTask={handleAddSubTask}
+                  onAddSubTask={(taskId) => handleAddSubTask(taskId)}
                   onDeleteTask={handleDeleteTask}
                   onAddToDaily={handleAddToDaily}
                   onAddSiblingTask={handleAddSiblingTask}
@@ -536,6 +539,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
                   editingContent={editingContent}
                   onEditContentChange={setEditingContent}
                   isInDailyTasks={isTaskInDaily(task.id)}
+                  onFocusToggle={() => {}}
                 />
               ))}
             </div>

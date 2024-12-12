@@ -23,6 +23,8 @@ interface HierarchicalTaskItemProps {
   editingContent: string;
   onEditContentChange: (content: string) => void;
   isInDailyTasks: boolean;
+  isFocused?: boolean;
+  onFocusToggle: () => void;
 }
 
 // 進捗率計算用のヘルパー関数を追加
@@ -63,12 +65,18 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
   editingContent,
   onEditContentChange,
   isInDailyTasks,
+  isFocused = false,
+  onFocusToggle,
 }) => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [canDelete, setCanDelete] = useState(true);
   const deleteTimeoutRef = useRef<NodeJS.Timeout>();
   const [deleteConfirmState, setDeleteConfirmState] = useState<'initial' | 'confirming'>('initial');
   const deleteConfirmTimeoutRef = useRef<NodeJS.Timeout>();
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [targetTime] = useState(25 * 60); // 25分
+  const timerRef = useRef<NodeJS.Timeout>();
 
   // テキストエリアの高さを自動調整する関数
   const adjustTextareaHeight = () => {
@@ -88,6 +96,9 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
       if (deleteConfirmTimeoutRef.current) {
         clearTimeout(deleteConfirmTimeoutRef.current);
       }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
     };
   }, []);
 
@@ -100,6 +111,48 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
       adjustTextareaHeight();
     }
   }, [isEditing, editingContent]);
+
+  // タイマーの開始/停止
+  const toggleTimer = () => {
+    if (isTimerRunning) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      setIsTimerRunning(false);
+    } else {
+      timerRef.current = setInterval(() => {
+        setTimeElapsed(prev => {
+          if (prev >= targetTime) {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
+            setIsTimerRunning(false);
+            return targetTime;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+      setIsTimerRunning(true);
+    }
+  };
+
+  // フォーカスが解除されたらタイマーをリセット
+  useEffect(() => {
+    if (!isFocused) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      setIsTimerRunning(false);
+      setTimeElapsed(0);
+    }
+  }, [isFocused]);
+
+  // 時間のフォーマット
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
@@ -225,48 +278,42 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
     task.is_completed ? 'text-green-600 line-through' : 'text-gray-600'
   }`;
 
-  return (
-    <div className="flex items-start gap-2 py-1 px-2 transition-colors duration-150 hover:bg-gray-50">
-      {task.level === 0 && (
-        <div className="flex-shrink-0 w-4">
-          {allTasks.some(t => t.parent_id === task.id) ? (
-            <button
-              onClick={onToggleExpand}
-              className="mt-0.5 p-0.5 rounded hover:bg-gray-200 text-gray-400"
-            >
-              {isExpanded ? (
-                <ChevronDownIcon className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronRightIcon className="w-3.5 h-3.5" />
-              )}
-            </button>
-          ) : null}
-        </div>
-      )}
+  // フォーカスモード用のスタイルを定義
+  const focusedStyles = isFocused ? {
+    transform: 'scale(1.02)',
+    boxShadow: '0 0 20px rgba(59, 130, 246, 0.1)',
+    background: 'white',
+    zIndex: 20,
+  } : {};
 
-      <div
-        className="flex-1 min-w-0"
-        style={{
-          marginLeft: `${task.level * 1.5}rem`,
-        }}
-      >
-        <div className="flex items-center gap-1.5">
-          {task.level > 0 && (
-            <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
-              {allTasks.some(t => t.parent_id === task.id) ? (
-                <button
-                  onClick={onToggleExpand}
-                  className="p-0.5 rounded hover:bg-gray-200 text-gray-400"
-                >
-                  {isExpanded ? (
-                    <ChevronDownIcon className="w-3.5 h-3.5" />
-                  ) : (
-                    <ChevronRightIcon className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              ) : null}
-            </div>
-          )}
+  return (
+    <div 
+      className={`flex items-start gap-2 py-1 px-2 transition-all duration-300 ${
+        isFocused 
+          ? 'rounded-lg border border-blue-100 hover:bg-blue-50/30' 
+          : 'hover:bg-gray-50'
+      }`}
+      style={{
+        ...focusedStyles,
+        marginLeft: `${task.level * 1.5}rem`,
+      }}
+    >
+      <div className="flex-1 min-w-0">
+        <div className={`flex items-center gap-1.5 ${isFocused ? 'py-2' : ''}`}>
+          <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+            {allTasks.some(t => t.parent_id === task.id) ? (
+              <button
+                onClick={onToggleExpand}
+                className="p-0.5 rounded hover:bg-gray-200 text-gray-400"
+              >
+                {isExpanded ? (
+                  <ChevronDownIcon className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronRightIcon className="w-3.5 h-3.5" />
+                )}
+              </button>
+            ) : null}
+          </div>
           <button
             onClick={() => onToggleComplete(task.id)}
             className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
@@ -318,6 +365,18 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
               </button>
             )}
           </div>
+          {task.level === 0 && task.status && (
+            <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded ${
+              task.status === '完了' ? 'bg-green-100 text-green-800' :
+              task.status === '進行中' ? 'bg-blue-100 text-blue-800' :
+              task.status === 'on hold' ? 'bg-yellow-100 text-yellow-800' :
+              task.status === 'casual' ? 'bg-purple-100 text-purple-800' :
+              task.status === 'backlog' ? 'bg-gray-100 text-gray-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {task.status}
+            </span>
+          )}
           {hasSubtasks && (
             <span className="flex-shrink-0 text-xs text-gray-400 whitespace-nowrap">
               {progress.completed}/{progress.total}
@@ -325,12 +384,14 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
           )}
           <button
             onClick={() => onAddToDaily(task)}
-            className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-gray-200 ${
-              isInDailyTasks ? 'text-blue-500' : 'text-gray-400'
+            className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-200 ${
+              isInDailyTasks 
+                ? 'bg-blue-100 text-blue-500 hover:bg-blue-200' 
+                : 'text-gray-400 hover:bg-gray-200'
             }`}
-            title={isInDailyTasks ? "本日のタスクから削除" : "本日のタスクに追加"}
+            title={isInDailyTasks ? "本日のタスク���ら削除" : "本日のタスクに追加"}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className={`w-3.5 h-3.5 ${isInDailyTasks ? 'fill-blue-100 stroke-blue-500' : 'fill-none stroke-current'}`} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </button>
@@ -345,7 +406,59 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
+          {isInDailyTasks && (
+            <button
+              onClick={onFocusToggle}
+              className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-200 ${
+                isFocused 
+                  ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                  : 'text-gray-400 hover:bg-gray-200'
+              }`}
+              title={isFocused ? "フォーカスモードを解除" : "フォーカスモードを開始"}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d={isFocused 
+                    ? "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"  // 虫眼鏡アイコン
+                    : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"  // 目のアイコン
+                  }
+                />
+              </svg>
+            </button>
+          )}
+          {isFocused && (
+            <div className="ml-2 flex items-center gap-2">
+              <div className="text-sm text-gray-600">
+                {formatTime(timeElapsed)} / {formatTime(targetTime)}
+              </div>
+              <button
+                className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                  isTimerRunning
+                    ? 'bg-gray-500 text-white hover:bg-gray-600'
+                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                }`}
+                onClick={toggleTimer}
+              >
+                {isTimerRunning ? '一時停止' : '開始'}
+              </button>
+            </div>
+          )}
         </div>
+        {isFocused && (
+          <>
+            <div className="mt-2 w-full bg-gray-100 rounded-full h-1.5">
+              <div 
+                className="bg-blue-500 h-1.5 rounded-full transition-all duration-1000"
+                style={{ width: `${(timeElapsed / targetTime) * 100}%` }}
+              />
+            </div>
+            {task.description && (
+              <div className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">
+                {task.description}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

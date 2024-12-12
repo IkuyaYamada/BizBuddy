@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } from 'react';
 import { Task } from '@/types/task';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -213,6 +213,14 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
     const [completingTaskId, setCompletingTaskId] = useState<number | null>(null);
+    const [focusedTaskId, setFocusedTaskId] = useState<number | null>(null);
+    const [isTimerRunning, setIsTimerRunning] = useState(false);
+    const [timeElapsed, setTimeElapsed] = useState(0);
+    const [tomatoCount, setTomatoCount] = useState(0);
+    const TOMATO_TIME = 25 * 60; // 25分
+    const timerRef = useRef<NodeJS.Timeout>();
+    const [focusMemo, setFocusMemo] = useState('');
+    const memoRef = useRef<HTMLTextAreaElement>(null);
 
     const sensors = useSensors(
       useSensor(PointerSensor),
@@ -313,7 +321,7 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
       saveDailyTasks(updatedTasks);
     };
 
-    // タスクの完了状態を切り替える関数を更新
+    // タスクの完了状態を切りえを
     const onToggleComplete = async (taskId: number) => {
       try {
         const dailyTask = dailyTasks.find(t => t.id === taskId);
@@ -524,7 +532,178 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
     const totalHours = Math.floor(totalEstimatedMinutes / 60);
     const remainingMinutes = totalEstimatedMinutes % 60;
 
-    // SortableTaskItemをコンポーネント内に移動
+    // タイマーの開始/停止
+    const toggleTimer = () => {
+      if (isTimerRunning) {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+        setIsTimerRunning(false);
+      } else {
+        timerRef.current = setInterval(() => {
+          setTimeElapsed(prev => {
+            const newTime = prev + 1;
+            // 25分経過ごとにトマトカウントを増やす
+            if (newTime % TOMATO_TIME === 0) {
+              setTomatoCount(current => current + 1);
+            }
+            return newTime;
+          });
+        }, 1000);
+        setIsTimerRunning(true);
+      }
+    };
+
+    // フォーカスが解除されたらタイマーをリセット
+    useEffect(() => {
+      if (!focusedTaskId) {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+        setIsTimerRunning(false);
+        setTimeElapsed(0);
+        setTomatoCount(0);
+      }
+    }, [focusedTaskId]);
+
+    // クリーンアップ
+    useEffect(() => {
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      };
+    }, []);
+
+    // 時間のフォーマット
+    const formatTime = (seconds: number): string => {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      if (hours > 0) {
+        return `${hours}時間${minutes}分`;
+      }
+      return `${minutes}分`;
+    };
+
+    // メモの保存
+    const saveMemo = async () => {
+      if (focusMemo.trim() && focusedTaskId) {
+        try {
+          await fetch('http://localhost:8000/memos/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              content: focusMemo,
+              task_ids: [focusedTaskId]
+            }),
+          });
+          setFocusMemo('');
+        } catch (error) {
+          console.error('Failed to save memo:', error);
+        }
+      }
+    };
+
+    // フォーカスモードの切り替え
+    const handleFocusToggle = async (taskId: number) => {
+      if (focusedTaskId === taskId) {
+        await saveMemo();
+        setFocusedTaskId(null);
+        setTimeElapsed(0);
+        setTomatoCount(0);
+      } else {
+        setFocusedTaskId(taskId);
+        setTimeElapsed(0);
+        setTomatoCount(0);
+        setIsTimerRunning(false);
+        setFocusMemo('');
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      }
+    };
+
+    // キーボードイベントの処理
+    useEffect(() => {
+      const handleKeyDown = async (e: KeyboardEvent) => {
+        if (!focusedTaskId) return;
+
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setFocusedTaskId(null);
+          setTimeElapsed(0);
+          setTomatoCount(0);
+          await saveMemo();
+        } else if (e.ctrlKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault();
+          const currentIndex = dailyTasks.findIndex(task => task.id === focusedTaskId);
+          if (currentIndex === -1) return;
+
+          let newIndex;
+          if (e.key === 'ArrowUp') {
+            newIndex = currentIndex > 0 ? currentIndex - 1 : dailyTasks.length - 1;
+          } else {
+            newIndex = currentIndex < dailyTasks.length - 1 ? currentIndex + 1 : 0;
+          }
+
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+          }
+          setIsTimerRunning(false);
+          setTimeElapsed(0);
+          setTomatoCount(0);
+          
+          setFocusedTaskId(dailyTasks[newIndex].id);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [focusedTaskId, dailyTasks, focusMemo]);
+
+    // タイマーの更新間隔を1分に設定
+    useEffect(() => {
+      if (isTimerRunning && focusedTaskId) {
+        timerRef.current = setInterval(() => {
+          setTimeElapsed(prev => {
+            const newTime = prev + 60; // 1分ずつ増加
+            if (newTime % TOMATO_TIME === 0) {
+              setTomatoCount(Math.floor(newTime / TOMATO_TIME));
+            }
+            return newTime;
+          });
+        }, 60000); // 1分 = 60000ミリ秒
+      }
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      };
+    }, [isTimerRunning, focusedTaskId]);
+
+    // 階層パスを取得する関数
+    const getTaskHierarchyPath = (taskId: number): string[] => {
+      const task = dailyTasks.find(t => t.id === taskId);
+      if (!task) return [];
+
+      // ローカルストレージから階層情報を取得
+      const storageKey = `daily_tasks_${selectedDate}`;
+      const storedTasks = localStorage.getItem(storageKey);
+      if (storedTasks) {
+        try {
+          const tasks = JSON.parse(storedTasks) as DailyTask[];
+          const targetTask = tasks.find(t => t.id === taskId);
+          return targetTask?.hierarchy_path || [];
+        } catch (e) {
+          console.error('Failed to parse stored tasks:', e);
+        }
+      }
+      return [];
+    };
+
+    // SortableTaskItemコンポーネントを再実装
     const SortableTaskItem = ({ task, index, onRemove, onUpdateTime, onToggleComplete }: {
       task: DailyTask;
       index: number;
@@ -545,11 +724,13 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
         transition,
       };
 
+      const isFocused = focusedTaskId === task.id;
+
       return (
         <div
           ref={setNodeRef}
           style={style}
-          className={`flex items-center gap-2 p-2 rounded group transition-all duration-300 ${
+          className={`relative flex items-center gap-2 p-2 rounded group transition-all duration-300 ${
             task.is_completed 
               ? 'bg-green-50 border border-green-200' 
               : 'bg-gray-50 border border-gray-200'
@@ -612,6 +793,24 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
             />
             <span className="text-sm text-gray-400">分</span>
             <button
+              onClick={() => handleFocusToggle(task.id)}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+                isFocused
+                  ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                  : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+              }`}
+              title={isFocused ? "フォーカスモードを解除" : "フォーカスモードを開始"}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                  d={isFocused
+                    ? "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  }
+                />
+              </svg>
+            </button>
+            <button
               onClick={() => onRemove(task.id)}
               className="text-gray-400 hover:text-gray-600 p-1"
             >
@@ -637,9 +836,96 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
 
     return (
       <div className="bg-white p-4">
+        {focusedTaskId && (
+          <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-40 flex items-center justify-center">
+            <div className="w-full h-screen max-w-7xl mx-auto px-4 py-8 flex flex-col">
+              <div className="w-full">
+                <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
+                  <div className="p-6">
+                    <div className="text-sm text-gray-500 mb-4">
+                      {(() => {
+                        const hierarchyPath = getTaskHierarchyPath(focusedTaskId);
+                        return hierarchyPath.length > 0 ? hierarchyPath.join(' > ') : null;
+                      })()}
+                    </div>
+                    <div className="text-sm text-gray-400 mb-2">
+                      タスク {dailyTasks.findIndex(t => t.id === focusedTaskId) + 1} / {dailyTasks.length}
+                    </div>
+                    <div className="text-2xl font-medium text-gray-800 mb-4">
+                      {dailyTasks.find(task => task.id === focusedTaskId)?.title}
+                    </div>
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={toggleTimer}
+                          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${
+                            isTimerRunning
+                              ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              : 'bg-red-50 text-red-600 hover:bg-red-100'
+                          }`}
+                          title={isTimerRunning ? '一時停止' : '開始'}
+                        >
+                          {isTimerRunning ? (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          ) : (
+                            <span className="text-2xl transform hover:scale-110 transition-transform">🍅</span>
+                          )}
+                        </button>
+                        <div className="text-2xl font-semibold text-gray-700">
+                          {formatTime(timeElapsed)}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {tomatoCount > 0 && '🍅'.repeat(tomatoCount)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onToggleComplete(focusedTaskId)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                          dailyTasks.find(t => t.id === focusedTaskId)?.is_completed
+                            ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                        }`}
+                        title={dailyTasks.find(t => t.id === focusedTaskId)?.is_completed ? "完了を取り消す" : "完了にする"}
+                      >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+                      <div 
+                        className="bg-red-400 h-2 rounded-full transition-all duration-1000"
+                        style={{ width: `${((timeElapsed % TOMATO_TIME) / TOMATO_TIME) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* メモエリア */}
+              <div className="mt-4 w-full">
+                <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
+                  <div className="p-6">
+                    <textarea
+                      ref={memoRef}
+                      value={focusMemo}
+                      onChange={(e) => setFocusMemo(e.target.value)}
+                      className="w-full resize-none border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base"
+                      placeholder="メモを入力..."
+                      style={{ height: 'calc(100vh - 450px)' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-normal text-gray-700">本日のタスク</h3>
+            <h3 className="text-lg font-normal text-gray-700">本日のスク</h3>
             <div className="text-sm text-gray-500 mt-1">
               合計: {totalHours}時間{remainingMinutes}分
             </div>
@@ -663,7 +949,7 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
             <button
               onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 1), 'yyyy-MM-dd'))}
               className="p-1 rounded hover:bg-gray-100 text-gray-600"
-              title="翌���"
+              title="翌日"
             >
               <ChevronRightIcon className="w-5 h-5" />
             </button>
@@ -736,7 +1022,7 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
             <p className="text-indigo-600 font-medium">
               {dailyTasks.every(task => task.is_completed)
                 ? '🎉 素晴らしい！今日のタスクを全て完了しました！'
-                : `💪 あと${dailyTasks.length - dailyTasks.filter(task => task.is_completed).length}個のタスクで目標達成！`}
+                : `💪 あと${dailyTasks.length - dailyTasks.filter(task => task.is_completed).length}個のタスク目標達成！`}
             </p>
           </div>
         )}

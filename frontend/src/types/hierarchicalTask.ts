@@ -11,6 +11,8 @@ export interface HierarchicalTask {
   created_at: string;
   updated_at: string;
   position?: number;
+  status?: string;
+  previous_status?: string;
 }
 
 export interface TaskTreeNode extends HierarchicalTask {
