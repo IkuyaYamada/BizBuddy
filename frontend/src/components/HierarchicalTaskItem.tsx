@@ -133,16 +133,25 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
             value={editingContent}
             onChange={(e) => onEditContentChange(e.target.value)}
             onBlur={(e) => {
+              if (e.currentTarget.dataset.isComposing === 'true') {
+                return;
+              }
               if (!e.currentTarget.dataset.saveTriggered) {
                 onEditSave(task.id, editingContent);
               }
             }}
             onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing) {
+                return;
+              }
+
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
                 e.currentTarget.dataset.saveTriggered = 'true';
                 onEditSave(task.id, editingContent);
                 e.currentTarget.blur();
               } else if (e.key === 'Escape') {
+                e.preventDefault();
                 e.currentTarget.dataset.saveTriggered = 'true';
                 onEditContentChange(task.title);
                 onEditSave(task.id, task.title);
@@ -150,6 +159,17 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
               } else if (e.key === 'Enter') {
                 e.preventDefault();
               }
+            }}
+            onCompositionStart={(e) => {
+              e.currentTarget.dataset.isComposing = 'true';
+            }}
+            onCompositionEnd={(e) => {
+              const input = e.currentTarget;
+              requestAnimationFrame(() => {
+                if (input && input.dataset) {
+                  input.dataset.isComposing = 'false';
+                }
+              });
             }}
             className="w-full py-0.5 text-sm border-0 bg-transparent focus:ring-0"
             autoFocus
