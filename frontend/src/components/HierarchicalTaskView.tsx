@@ -71,6 +71,23 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     initialFetch();
   }, []);
 
+  // タブ切り替え時のデータ保持
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        await fetchTasks();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, []);
+
   const handleAddTask = async () => {
     try {
       // 第一階層のタスクとして追加
@@ -115,7 +132,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
       // 削除後に強制的にタスク一覧を再取得
       await fetchTasks();
 
-      // 親タスクの展開状態を更新
+      // 親タス��の展開状態を更新
       if (task?.parent_id) {
         setExpandedTasks(prev => {
           const next = new Set(prev);
@@ -161,7 +178,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     }
   };
 
-  // 表示��るタスクをフィルタリング
+  // 表示するタスクをフィルタリング
   const getVisibleTasks = (tasks: HierarchicalTask[]): HierarchicalTask[] => {
     const result: HierarchicalTask[] = [];
     let currentLevel = 0;
