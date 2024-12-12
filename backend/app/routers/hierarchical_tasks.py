@@ -20,7 +20,7 @@ async def create_hierarchical_task(task: HierarchicalTaskCreate, db: Session = D
 
 @router.get("/hierarchical-tasks/", response_model=List[HierarchicalTaskResponse])
 async def get_hierarchical_tasks(db: Session = Depends(get_db)):
-    tasks = db.query(HierarchicalTask).filter(HierarchicalTask.parent_id.is_(None)).all()
+    tasks = db.query(HierarchicalTask).all()
     return tasks
 
 @router.get("/hierarchical-tasks/{task_id}", response_model=HierarchicalTaskResponse)

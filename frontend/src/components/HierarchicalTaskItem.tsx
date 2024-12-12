@@ -132,12 +132,20 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
             type="text"
             value={editingContent}
             onChange={(e) => onEditContentChange(e.target.value)}
-            onBlur={() => onEditSave(task.id, editingContent)}
+            onBlur={(e) => {
+              if (!e.currentTarget.dataset.saveTriggered) {
+                onEditSave(task.id, editingContent);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
+                e.currentTarget.dataset.saveTriggered = 'true';
                 onEditSave(task.id, editingContent);
+                e.currentTarget.blur();
               } else if (e.key === 'Escape') {
+                e.currentTarget.dataset.saveTriggered = 'true';
                 onEditSave(task.id, task.title);
+                e.currentTarget.blur();
               }
             }}
             className="w-full py-0.5 text-sm border-0 bg-transparent focus:ring-0"

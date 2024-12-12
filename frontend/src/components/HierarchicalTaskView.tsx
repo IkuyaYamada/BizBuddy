@@ -132,7 +132,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
       // 削除後に強制的にタスク一覧を再取得
       await fetchTasks();
 
-      // 親タス��の展開状態を更新
+      // 親タスクの展開状態を更新
       if (task?.parent_id) {
         setExpandedTasks(prev => {
           const next = new Set(prev);
@@ -218,7 +218,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     return result;
   };
 
-  // パネルサイズが変更されたときの処理を追加
+  // パ��ルサイズが変更されたときの処理を追加
   const handlePanelResize = (sizes: number[]) => {
     setPanelSizes(sizes);
     try {
@@ -380,6 +380,24 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
                   isInDailyTasks={isTaskInDaily(task.id)}
                 />
               ))}
+            </div>
+
+            {/* デバッグ情報 */}
+            <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">デバッグ情報: APIから取得した全タスク</h3>
+              <div className="space-y-1 text-xs text-gray-600">
+                {hierarchicalTasks.map(task => (
+                  <div key={task.id} className="flex items-center gap-2">
+                    <span className="font-mono">ID: {task.id}</span>
+                    <span>|</span>
+                    <span>Title: {task.title}</span>
+                    <span>|</span>
+                    <span>Level: {task.level}</span>
+                    <span>|</span>
+                    <span>Parent: {task.parent_id || 'none'}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </Panel>

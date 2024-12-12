@@ -43,6 +43,7 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
 
   // タスクをツリー構造に整理する関数
   const organizeTasksIntoTree = useCallback((tasks: HierarchicalTask[]): HierarchicalTask[] => {
+    // 親IDでタスクをグループ化
     const tasksByParent = tasks.reduce((acc, task) => {
       const parentId = task.parent_id || 'root';
       if (!acc[parentId]) {
@@ -52,24 +53,36 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
       return acc;
     }, {} as Record<string | number, HierarchicalTask[]>);
 
-    const buildTree = (parentId: string | number = 'root', level: number = 0): HierarchicalTask[] => {
-      const children = tasksByParent[parentId] || [];
-      const result: HierarchicalTask[] = [];
-      
-      for (const task of children) {
-        result.push({
+    // ルートレベルのタスクを取得（parent_idがnullまたはundefinedのタスク）
+    const rootTasks = tasks.filter(task => !task.parent_id);
+    
+    // 再帰的にツリーを構築
+    const buildTree = (tasks: HierarchicalTask[], level: number = 0): HierarchicalTask[] => {
+      return tasks.map(task => {
+        const children = tasksByParent[task.id] || [];
+        return {
           ...task,
-          level
-        });
-        if (tasksByParent[task.id]) {
-          result.push(...buildTree(task.id, level + 1));
-        }
-      }
-      
-      return result;
+          level,
+          children: buildTree(children, level + 1)
+        };
+      });
     };
 
-    return buildTree();
+    // ルートタスクから開始
+    const result = buildTree(rootTasks);
+    
+    // ツリー構造を配列に平坦化
+    const flattenTree = (tasks: HierarchicalTask[]): HierarchicalTask[] => {
+      return tasks.reduce((acc, task) => {
+        acc.push(task);
+        if (task.children?.length) {
+          acc.push(...flattenTree(task.children));
+        }
+        return acc;
+      }, [] as HierarchicalTask[]);
+    };
+
+    return flattenTree(result);
   }, []);
 
   // タスクの取得
@@ -103,13 +116,13 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     } finally {
       setIsLoading(false);
     }
-  }, [organizeTasksIntoTree, sortMainTasks]);
+  }, [tasks, sortMainTasks, organizeTasksIntoTree]);
 
   // タスクの追加
   const addTask = useCallback(async (parentId?: number, level: number = 0) => {
     try {
       const newTask = await api.createHierarchicalTask({
-        title: '新しいタスク',
+        title: 'しいタスク',
         is_completed: false,
         parent_id: parentId,
         level,
@@ -132,10 +145,23 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     try {
       await api.deleteHierarchicalTask(taskId);
       
-      // 削除後に全タスクを再取得して状態を更新
-      const data = await api.getHierarchicalTasks();
+      // 削除されたタスクとその子タスクをローカルの状態から除外
       setHierarchicalTasks(prev => {
-        return organizeTasksIntoTree([...data]);
+        // 削除対象のタスクIDを収集（削除対象のタスクとその子タスク）
+        const deletedIds = new Set<number>();
+        const collectIds = (id: number) => {
+          deletedIds.add(id);
+          prev.forEach(task => {
+            if (task.parent_id === id) {
+              collectIds(task.id);
+            }
+          });
+        };
+        collectIds(taskId);
+
+        // 削除対象以外のタスクを保持
+        const remainingTasks = prev.filter(task => !deletedIds.has(task.id));
+        return organizeTasksIntoTree(remainingTasks);
       });
     } catch (error) {
       console.error('Failed to delete task:', error);
@@ -169,7 +195,24 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
   // 初期データの取得
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, []); // 初回マウント時のみ実行
+
+  // タブの可視性変更時にデータを再取得
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchTasks();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [fetchTasks]);
 
   return {
     hierarchicalTasks,
