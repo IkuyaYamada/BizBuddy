@@ -1,21 +1,38 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text
-from sqlalchemy.orm import relationship
+from typing import List, Optional
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from app.database import Base
 
-class HierarchicalTask(Base):
-    __tablename__ = "hierarchical_tasks"
+class HierarchicalTaskBase(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
 
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    description = Column(Text, nullable=True)
-    is_completed = Column(Boolean, default=False)
-    parent_id = Column(Integer, ForeignKey("hierarchical_tasks.id"), nullable=True)
-    level = Column(Integer, default=0)
-    deadline = Column(DateTime, nullable=True)
-    priority = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+class ActionItem(HierarchicalTaskBase):
+    leaf_task_id: int
+    content: str
+    is_completed: bool = False
 
-    # 親子関係
-    parent = relationship("HierarchicalTask", remote_side=[id], backref="children") 
+class LeafTask(HierarchicalTaskBase):
+    sub_task_id: int
+    action_items: Optional[List[ActionItem]] = None
+
+class SubTask(HierarchicalTaskBase):
+    task_id: int
+    leaf_tasks: Optional[List[LeafTask]] = None
+
+class HierarchicalTask(HierarchicalTaskBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    parent_id: Optional[int] = None
+    children: Optional[List["HierarchicalTask"]] = None
+    sub_tasks: Optional[List[SubTask]] = None
+
+    def dict(self, *args, **kwargs):
+        # 循環参照を防ぐためのカスタムdict実装
+        data = super().dict(*args, **kwargs)
+        if self.children:
+            data["children"] = [child.dict(*args, **kwargs) for child in self.children]
+        return data 

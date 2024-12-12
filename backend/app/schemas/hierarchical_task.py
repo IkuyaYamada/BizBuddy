@@ -1,27 +1,40 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from typing import List, Optional
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 class HierarchicalTaskBase(BaseModel):
+    id: int
     title: str
     description: Optional[str] = None
-    is_completed: bool = False
-    parent_id: Optional[int] = None
-    level: int = 0
-    deadline: Optional[datetime] = None
-    priority: Optional[int] = None
-
-class HierarchicalTaskCreate(HierarchicalTaskBase):
-    pass
-
-class HierarchicalTask(HierarchicalTaskBase):
-    id: int
     created_at: datetime
     updated_at: datetime
-    children: List['HierarchicalTask'] = []
 
-    class Config:
-        from_attributes = True
+class ActionItem(HierarchicalTaskBase):
+    leaf_task_id: int
+    content: str
+    is_completed: bool = False
 
-# 循環参照を解決するために必要
-HierarchicalTask.model_rebuild() 
+class LeafTask(HierarchicalTaskBase):
+    sub_task_id: int
+    action_items: Optional[List[ActionItem]] = None
+
+class SubTask(HierarchicalTaskBase):
+    task_id: int
+    leaf_tasks: Optional[List[LeafTask]] = None
+
+class HierarchicalTaskResponse(HierarchicalTaskBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    parent_id: Optional[int] = None
+    children: Optional[List["HierarchicalTaskResponse"]] = None
+    sub_tasks: Optional[List[SubTask]] = None
+
+    def dict(self, *args, **kwargs):
+        # 循環参照を防ぐためのカスタムdict実装
+        data = super().dict(*args, **kwargs)
+        if self.children:
+            data["children"] = [child.dict(*args, **kwargs) for child in self.children]
+        return data
+
+# 循環参照の解決
+HierarchicalTaskResponse.model_rebuild() 
