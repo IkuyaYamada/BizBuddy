@@ -42,7 +42,7 @@ const statusOrder = {
 // ローカルストレージのキー
 const COLLAPSED_TASKS_KEY = 'hierarchical_tasks_collapsed_state';
 
-// パネルサイズを保存するためのキー
+// ���ネルサイズを保存するためのキー
 const PANEL_SIZES_KEY = 'hierarchical_task_panel_sizes';
 
 export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ tasks, onUpdate }) => {
@@ -214,10 +214,8 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
           return next;
         });
 
-        setHierarchicalTasks(prev => {
-          const newTasks = [...prev, newTask];
-          return organizeTasksIntoTree(newTasks);
-        });
+        // 状態を更新して再フェッチ
+        await fetchTasks();
       } else {
         // タスクが一つもない場合は第一階層に追加
         const newTask = await api.createHierarchicalTask({
@@ -233,7 +231,8 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
           return next;
         });
 
-        setHierarchicalTasks([newTask]);
+        // 状態を更新して再フェッチ
+        await fetchTasks();
       }
     } catch (error) {
       console.error('Failed to add task:', error);
@@ -269,9 +268,17 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
   const handleDeleteTask = async (taskId: number) => {
     try {
       await api.deleteHierarchicalTask(taskId);
-      setHierarchicalTasks(prev => {
-        const newTasks = prev.filter(task => task.id !== taskId);
-        return organizeTasksIntoTree(newTasks);
+      // 状態を更新して再フェッチ
+      await fetchTasks();
+      // 親タスクの展開状態を更新
+      setExpandedTasks(prev => {
+        const task = hierarchicalTasks.find(t => t.id === taskId);
+        if (task?.parent_id) {
+          const next = new Set(prev);
+          next.add(task.parent_id);
+          return next;
+        }
+        return prev;
       });
     } catch (error) {
       console.error('Failed to delete task:', error);
@@ -288,10 +295,8 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
         is_completed: !task.is_completed,
       });
 
-      setHierarchicalTasks(prev => {
-        const newTasks = prev.map(t => t.id === taskId ? updatedTask : t);
-        return organizeTasksIntoTree(newTasks);
-      });
+      // 状態を更新して再フェッチ
+      await fetchTasks();
     } catch (error) {
       console.error('Failed to update task completion:', error);
     }
@@ -360,10 +365,8 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
         return next;
       });
 
-      setHierarchicalTasks(prev => {
-        const newTasks = [...prev, newTask];
-        return organizeTasksIntoTree(newTasks);
-      });
+      // 状態を更新して再フェッチ
+      await fetchTasks();
     } catch (error) {
       console.error('Failed to add task:', error);
     }
