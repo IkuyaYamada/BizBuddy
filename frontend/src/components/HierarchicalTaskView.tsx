@@ -65,8 +65,11 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
 
   // タスクの取得とソート
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    const initialFetch = async () => {
+      await fetchTasks();
+    };
+    initialFetch();
+  }, []);
 
   const handleAddTask = async () => {
     try {
@@ -158,7 +161,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     }
   };
 
-  // 表示するタスクをフィルタリング
+  // 表示��るタスクをフィルタリング
   const getVisibleTasks = (tasks: HierarchicalTask[]): HierarchicalTask[] => {
     const result: HierarchicalTask[] = [];
     let currentLevel = 0;
