@@ -94,14 +94,8 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
       // 第一階層のタスクをソート
       const sortedMainTasks = sortMainTasks(mainTasks);
       
-      // 既存のhierarchicalTasksから、APIで取得したデータに含まれていないタスクを抽出
-      const existingTasks = hierarchicalTasks.filter(task => 
-        !data.some((apiTask: HierarchicalTask) => apiTask.id === task.id) && 
-        !mainTasks.some((mainTask: HierarchicalTask) => mainTask.id === task.id)
-      );
-      
       // すべてのタスクを組み合わせてツリー構造に整理
-      const allTasks = [...sortedMainTasks, ...data, ...existingTasks];
+      const allTasks = [...sortedMainTasks, ...data];
       setHierarchicalTasks(organizeTasksIntoTree(allTasks));
     } catch (error) {
       setError(error as Error);
@@ -109,7 +103,7 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     } finally {
       setIsLoading(false);
     }
-  }, [tasks, sortMainTasks, organizeTasksIntoTree, hierarchicalTasks]);
+  }, [tasks, sortMainTasks, organizeTasksIntoTree]);
 
   // タスクの追加
   const addTask = useCallback(async (parentId?: number, level: number = 0) => {
