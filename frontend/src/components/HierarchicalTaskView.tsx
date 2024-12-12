@@ -70,33 +70,37 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
 
   const handleAddTask = async () => {
     try {
-      // 最後のタスクを取得
-      const lastTask = hierarchicalTasks[hierarchicalTasks.length - 1];
-      
-      if (lastTask) {
-        // 最後のタスクの子タスクとして追加
-        const newTask = await addTask(lastTask.id, (lastTask.level || 0) + 1);
+      // 第一階層のタスクとして追加
+      const newTask = await addTask(undefined, 0);
 
-        // 新しいタスクと親タスクを展開状態にする
-        setExpandedTasks(prev => {
-          const next = new Set(prev);
-          next.add(newTask.id);
-          next.add(lastTask.id);
-          return next;
-        });
-      } else {
-        // タスクが一つもない場合は第一階層に追加
-        const newTask = await addTask(undefined, 0);
-
-        // 新しいタスクを展開状態にする
-        setExpandedTasks(prev => {
-          const next = new Set(prev);
-          next.add(newTask.id);
-          return next;
-        });
-      }
+      // 新しいタスクを展開状態にする
+      setExpandedTasks(prev => {
+        const next = new Set(prev);
+        next.add(newTask.id);
+        return next;
+      });
     } catch (error) {
       console.error('Failed to add task:', error);
+    }
+  };
+
+  const handleAddSubTask = async (parentId: number) => {
+    try {
+      const parentTask = hierarchicalTasks.find(t => t.id === parentId);
+      if (!parentTask) return;
+
+      // 親タスクの子タスクとして追加
+      const newTask = await addTask(parentId, (parentTask.level || 0) + 1);
+
+      // 新しいタスクと親タスクを展開状態にする
+      setExpandedTasks(prev => {
+        const next = new Set(prev);
+        next.add(newTask.id);
+        next.add(parentId);
+        return next;
+      });
+    } catch (error) {
+      console.error('Failed to add subtask:', error);
     }
   };
 
@@ -340,7 +344,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
                   onToggleComplete={handleToggleComplete}
                   onEditStart={handleEditStart}
                   onEditSave={handleEditSave}
-                  onAddSubTask={handleAddTask}
+                  onAddSubTask={handleAddSubTask}
                   onDeleteTask={handleDeleteTask}
                   onAddToDaily={handleAddToDaily}
                   onAddSiblingTask={handleAddSiblingTask}
