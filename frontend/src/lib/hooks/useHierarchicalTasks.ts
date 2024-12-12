@@ -39,7 +39,7 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
       const priorityB = taskB?.priority || 0;
       return priorityB - priorityA;
     });
-  }, [tasks]);
+  }, []);
 
   // タスクをツリー構造に整理する関数
   const organizeTasksIntoTree = useCallback((tasks: HierarchicalTask[]): HierarchicalTask[] => {
@@ -103,7 +103,7 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     } finally {
       setIsLoading(false);
     }
-  }, [tasks, sortMainTasks, organizeTasksIntoTree]);
+  }, [organizeTasksIntoTree, sortMainTasks]);
 
   // タスクの追加
   const addTask = useCallback(async (parentId?: number, level: number = 0) => {
@@ -169,7 +169,7 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
   // 初期データの取得
   useEffect(() => {
     fetchTasks();
-  }, [fetchTasks]);
+  }, []);
 
   return {
     hierarchicalTasks,
