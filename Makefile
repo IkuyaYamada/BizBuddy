@@ -1,4 +1,4 @@
-.PHONY: backend frontend dev setup clean
+.PHONY: backend frontend dev setup clean reset-hierarchical
 
 SHELL := /bin/zsh
 
@@ -45,3 +45,8 @@ clean:
 	rm -rf frontend/node_modules
 	find . -type d -name "__pycache__" -exec rm -r {} +
 	find . -type f -name "*.pyc" -delete 
+
+# 階層型タスクのテーブルをリセット
+reset-hierarchical:
+	@echo "階層型タスクのテーブルをリセットします..."
+	@python backend/scripts/reset_hierarchical_tables.py
