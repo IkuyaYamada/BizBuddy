@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from app.database import get_db
 from app.models.hierarchical_task import HierarchicalTask
 from app.schemas.hierarchical_task import (
@@ -13,7 +14,7 @@ router = APIRouter()
 @router.post("/hierarchical-tasks/", response_model=HierarchicalTaskResponse)
 async def create_hierarchical_task(task: HierarchicalTaskCreate, db: Session = Depends(get_db)):
     # 既存の最大IDを取得
-    max_id = db.query(db.func.max(HierarchicalTask.id)).scalar() or 0
+    max_id = db.query(func.max(HierarchicalTask.id)).scalar() or 0
     
     # 階層型タスク用のIDオフセット（例：10000）を追加
     HIERARCHICAL_TASK_ID_OFFSET = 10000
