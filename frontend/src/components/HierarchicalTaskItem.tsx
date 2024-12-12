@@ -138,14 +138,17 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
               }
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.currentTarget.dataset.saveTriggered = 'true';
                 onEditSave(task.id, editingContent);
                 e.currentTarget.blur();
               } else if (e.key === 'Escape') {
                 e.currentTarget.dataset.saveTriggered = 'true';
+                onEditContentChange(task.title);
                 onEditSave(task.id, task.title);
                 e.currentTarget.blur();
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
               }
             }}
             className="w-full py-0.5 text-sm border-0 bg-transparent focus:ring-0"
