@@ -12,7 +12,18 @@ router = APIRouter()
 
 @router.post("/hierarchical-tasks/", response_model=HierarchicalTaskResponse)
 async def create_hierarchical_task(task: HierarchicalTaskCreate, db: Session = Depends(get_db)):
-    db_task = HierarchicalTask(**task.model_dump())
+    # 既存の最大IDを取得
+    max_id = db.query(db.func.max(HierarchicalTask.id)).scalar() or 0
+    
+    # 階層型タスク用のIDオフセット（例：10000）を追加
+    HIERARCHICAL_TASK_ID_OFFSET = 10000
+    next_id = max(max_id + 1, HIERARCHICAL_TASK_ID_OFFSET)
+    
+    # タスクの作成
+    db_task = HierarchicalTask(
+        id=next_id,
+        **task.model_dump(exclude={'id'})
+    )
     db.add(db_task)
     db.commit()
     db.refresh(db_task)

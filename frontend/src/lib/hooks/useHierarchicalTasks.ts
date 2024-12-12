@@ -107,8 +107,10 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
       // 第一階層のタスクをソート
       const sortedMainTasks = sortMainTasks(mainTasks);
       
-      // すべてのタスクを組み合わせてツリー構造に整理
-      const allTasks = [...sortedMainTasks, ...data];
+      // すべてのタスクを組み合わせてツリー構造に整理（重複を防ぐ）
+      const allTasks = Array.from(
+        new Map([...sortedMainTasks, ...data].map(task => [task.id, task])).values()
+      );
       setHierarchicalTasks(organizeTasksIntoTree(allTasks));
     } catch (error) {
       setError(error as Error);
@@ -180,9 +182,17 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
         ...updates,
       });
 
+      // 重複を防ぐため、IDでユニーク化してから更新
       setHierarchicalTasks(prev => {
-        const newTasks = prev.map(t => t.id === taskId ? { ...t, ...updatedTask } : t);
-        return organizeTasksIntoTree(newTasks);
+        // 既存のタスクから更新対象のタスクを除外
+        const filteredTasks = prev.filter(t => t.id !== taskId);
+        // 更新されたタスクを追加
+        const newTasks = [...filteredTasks, updatedTask];
+        // IDでユニーク化
+        const uniqueTasks = Array.from(
+          new Map(newTasks.map(task => [task.id, task])).values()
+        );
+        return organizeTasksIntoTree(uniqueTasks);
       });
 
       return updatedTask;
