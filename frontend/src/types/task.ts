@@ -17,6 +17,7 @@ export interface Task {
   priority_score: number
   motivation_score: number
   status: string
+  previous_status?: string
   created_at: string
   last_updated: string
   work_logs?: WorkLog[]

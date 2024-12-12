@@ -18,9 +18,31 @@ interface HierarchicalTaskViewProps {
 // ローカルストレージのキー
 const COLLAPSED_TASKS_KEY = 'hierarchical_tasks_collapsed_state';
 const PANEL_SIZES_KEY = 'hierarchical_task_panel_sizes';
+const LAST_EDIT_STATE_KEY = 'hierarchical_tasks_last_edit_state';
+
+// サブタスクを含むすべての子タスクのIDを取得する関数を追加
+const getAllChildTaskIds = (taskId: number, tasks: HierarchicalTask[]): number[] => {
+  const childIds: number[] = [];
+  const collectIds = (id: number) => {
+    const children = tasks.filter(t => t.parent_id === id);
+    children.forEach(child => {
+      childIds.push(child.id);
+      collectIds(child.id);
+    });
+  };
+  collectIds(taskId);
+  return childIds;
+};
 
 export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ tasks, onUpdate }) => {
-  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(() => {
+    try {
+      const savedState = localStorage.getItem(LAST_EDIT_STATE_KEY);
+      return savedState ? JSON.parse(savedState).taskId : null;
+    } catch {
+      return null;
+    }
+  });
   const [editingContent, setEditingContent] = useState('');
   const schedulerRef = useRef<DailyTaskSchedulerRef>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(() => {
@@ -32,6 +54,8 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
       return new Set<number>();
     }
   });
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [overId, setOverId] = useState<number | null>(null);
 
   // パネルサイズの状態を追加
   const [panelSizes, setPanelSizes] = useState<number[]>(() => {
@@ -61,6 +85,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     deleteTask,
     updateTask,
     fetchTasks,
+    handleTaskMove,
   } = useHierarchicalTasks(tasks);
 
   // タスクの取得とソート
@@ -71,11 +96,67 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     initialFetch();
   }, []);
 
+  // 編集状態の保存
+  useEffect(() => {
+    if (editingTaskId !== null) {
+      localStorage.setItem(LAST_EDIT_STATE_KEY, JSON.stringify({
+        taskId: editingTaskId,
+        content: editingContent
+      }));
+    }
+  }, [editingTaskId, editingContent]);
+
+  const handleEditSave = async (taskId: number, content: string) => {
+    try {
+      // タイトルが空の場合は保存せずに編集状態を維持
+      if (!content.trim()) {
+        return;
+      }
+
+      const task = hierarchicalTasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      await updateTask(taskId, {
+        ...task,
+        title: content,
+      });
+
+      setEditingTaskId(null);
+      setEditingContent('');
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
+
   // タブ切り替え時のデータ保持
   useEffect(() => {
-    const handleVisibilityChange = async () => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const handleVisibilityChange = () => {
       if (!document.hidden) {
-        await fetchTasks();
+        // 画面がアクティブになってから少し待ってからデータを更新
+        timeoutId = setTimeout(async () => {
+          await fetchTasks();
+          // データ更新後、保存されていた編集状態を復元
+          const savedState = localStorage.getItem(LAST_EDIT_STATE_KEY);
+          if (savedState) {
+            const { taskId, content } = JSON.parse(savedState);
+            const task = hierarchicalTasks.find(t => t.id === taskId);
+            if (task) {
+              setEditingTaskId(task.id);
+              setEditingContent(content || task.title);
+              // 次のレンダリングサイクルでカーソルを末尾に移動
+              setTimeout(() => {
+                const input = document.querySelector(`input[data-task-id="${task.id}"]`) as HTMLInputElement;
+                if (input) {
+                  input.focus();
+                  const cursorPos = content ? content.length : task.title.length;
+                  input.setSelectionRange(cursorPos, cursorPos);
+                }
+              }, 0);
+            }
+          }
+        }, 1000);
       }
     };
 
@@ -85,60 +166,95 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, []);
+  }, [fetchTasks, hierarchicalTasks]);
 
   const handleAddTask = async () => {
     try {
-      // 第一階層のタスクとして追加
-      const newTask = await addTask(undefined, 0);
+      // 最後のルートタスクを親として使用
+      const rootTasks = hierarchicalTasks.filter(t => t.level === 0);
+      const lastRootTask = rootTasks[rootTasks.length - 1];
 
-      // 新しいタスクを展開状態にする
-      setExpandedTasks(prev => {
-        const next = new Set(prev);
-        next.add(newTask.id);
-        return next;
-      });
+      if (lastRootTask) {
+        // 既存のルートタスクがある場合は、その子タスクとして追加
+        const newTask = await addTask(lastRootTask.id, 1);
+        setExpandedTasks(prev => {
+          const next = new Set(prev);
+          next.add(lastRootTask.id);
+          return next;
+        });
+        setEditingTaskId(newTask.id);
+        setEditingContent(newTask.title);
+      } else {
+        // ルートタスクが1つもな��合は、新しいルートタスクを作成
+        const newRootTask = await addTask(undefined, 0);
+        const newSubTask = await addTask(newRootTask.id, 1);
+        setExpandedTasks(prev => {
+          const next = new Set(prev);
+          next.add(newRootTask.id);
+          return next;
+        });
+        setEditingTaskId(newSubTask.id);
+        setEditingContent(newSubTask.title);
+      }
     } catch (error) {
       console.error('Failed to add task:', error);
     }
   };
 
-  const handleAddSubTask = async (parentId: number) => {
+  const handleAddSubTask = async (taskId: number): Promise<HierarchicalTask> => {
     try {
-      const parentTask = hierarchicalTasks.find(t => t.id === parentId);
-      if (!parentTask) return;
+      const parentTask = hierarchicalTasks.find(t => t.id === taskId);
+      if (!parentTask) throw new Error('Parent task not found');
 
-      // 親タスクの子タスクとして追加
-      const newTask = await addTask(parentId, (parentTask.level || 0) + 1);
+      const newTask = await addTask(taskId, (parentTask.level || 0) + 1);
 
-      // 新しいタスクと親タスクを展開状態にする
+      // 親タスクの最後の子タスクの後に新しいタスクを配置
+      const childTasks = hierarchicalTasks.filter(t => t.parent_id === taskId);
+      const updatedTasks = [...hierarchicalTasks];
+      const newTaskIndex = updatedTasks.findIndex(t => t.id === newTask.id);
+      if (newTaskIndex !== -1) {
+        const taskToMove = updatedTasks.splice(newTaskIndex, 1)[0];
+        const lastChildIndex = childTasks.length > 0 
+          ? updatedTasks.findIndex(t => t.id === childTasks[childTasks.length - 1].id) + 1
+          : updatedTasks.findIndex(t => t.id === taskId) + 1;
+        updatedTasks.splice(lastChildIndex, 0, taskToMove);
+        await fetchTasks();
+      }
+
+      // 編集モードを有効化
+      setEditingTaskId(newTask.id);
+      setEditingContent(newTask.title);
+
+      // 親タスクを展開
       setExpandedTasks(prev => {
         const next = new Set(prev);
-        next.add(newTask.id);
-        next.add(parentId);
+        next.add(taskId);
         return next;
       });
+
+      return newTask;
     } catch (error) {
       console.error('Failed to add subtask:', error);
+      throw error;
     }
   };
 
   const handleDeleteTask = async (taskId: number) => {
     try {
-      const task = hierarchicalTasks.find(t => t.id === taskId);
+      // 削除前に一つ上のタスクを特定
+      const currentTaskIndex = hierarchicalTasks.findIndex(t => t.id === taskId);
+      const previousTask = currentTaskIndex > 0 ? hierarchicalTasks[currentTaskIndex - 1] : null;
+
       await deleteTask(taskId);
       
-      // 削除後に強制的にタスク一覧を再取得
-      await fetchTasks();
-
-      // 親タスクの展開状態を更新
-      if (task?.parent_id) {
-        setExpandedTasks(prev => {
-          const next = new Set(prev);
-          next.add(task.parent_id!);
-          return next;
-        });
+      // 一つ上のタスクが存在する場合、そのタスクの編集モードを有効化
+      if (previousTask) {
+        setEditingTaskId(previousTask.id);
+        setEditingContent(previousTask.title);
       }
     } catch (error) {
       console.error('Failed to delete task:', error);
@@ -151,30 +267,41 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
       if (!task) return;
 
       await updateTask(taskId, {
+        ...task,
         is_completed: !task.is_completed,
+        parent_id: task.parent_id,
+        level: task.level,
       });
     } catch (error) {
       console.error('Failed to update task completion:', error);
     }
   };
 
-  const handleAddSiblingTask = async (siblingId: number) => {
+  const handleAddSiblingTask = async (taskId: number) => {
     try {
-      const siblingTask = hierarchicalTasks.find(t => t.id === siblingId);
-      if (!siblingTask) return;
+      const task = hierarchicalTasks.find(t => t.id === taskId);
+      if (!task) return;
 
-      // 前のタスクを親として追加（階層を下げる）
-      const newTask = await addTask(siblingId, (siblingTask.level || 0) + 1);
+      // ルートレベルのタスクからの追加の場合は、子タスクとして追加
+      if (task.level === 0) {
+        const newTask = await addTask(taskId, 1); // 親タスクのIDを指定し、レベルを1に設定
+        setEditingTaskId(newTask.id);
+        setEditingContent(newTask.title);
 
-      // 新しいタスクと親タスクを展開状態にする
-      setExpandedTasks(prev => {
-        const next = new Set(prev);
-        next.add(newTask.id);
-        next.add(siblingId);
-        return next;
-      });
+        // 親タスクを展開
+        setExpandedTasks(prev => {
+          const next = new Set(prev);
+          next.add(taskId);
+          return next;
+        });
+      } else {
+        // 通常の同階層追加
+        const newTask = await addTask(task.parent_id, task.level);
+        setEditingTaskId(newTask.id);
+        setEditingContent(newTask.title);
+      }
     } catch (error) {
-      console.error('Failed to add task:', error);
+      console.error('Failed to add sibling task:', error);
     }
   };
 
@@ -218,7 +345,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     return result;
   };
 
-  // パ��ルサイズが変更されたときの処理を追加
+  // パネルサイズが変更されたときの処理を追加
   const handlePanelResize = (sizes: number[]) => {
     setPanelSizes(sizes);
     try {
@@ -260,23 +387,15 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
   const handleEditStart = (task: HierarchicalTask) => {
     setEditingTaskId(task.id);
     setEditingContent(task.title);
-  };
-
-  const handleEditSave = async (taskId: number, content: string) => {
-    try {
-      const task = hierarchicalTasks.find(t => t.id === taskId);
-      if (!task) return;
-
-      await updateTask(taskId, {
-        ...task,
-        title: content,
-      });
-
-      setEditingTaskId(null);
-      setEditingContent('');
-    } catch (error) {
-      console.error('Failed to update task:', error);
-    }
+    
+    // 次のレンダリングサイクルでカーソルを末尾に移動
+    setTimeout(() => {
+      const input = document.querySelector(`input[data-task-id="${task.id}"]`) as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.setSelectionRange(task.title.length, task.title.length);
+      }
+    }, 0);
   };
 
   const handleIncreaseLevel = async (taskId: number) => {
@@ -287,7 +406,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
       // 同じレベルの前のタスクを探す
       const sameLevel = hierarchicalTasks.filter(t => t.level === task.level);
       const taskIndex = sameLevel.findIndex(t => t.id === taskId);
-      if (taskIndex <= 0) return; // 前のタスクがない場合は階層を上げられない
+      if (taskIndex <= 0) return; // 前のタスクがない場合は階層を上げれない
 
       const newParentId = sameLevel[taskIndex - 1].id;
       await updateTask(taskId, {
@@ -315,6 +434,43 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
       });
     } catch (error) {
       console.error('Failed to update task level:', error);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, task: HierarchicalTask) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleEditSave(task.id, editingContent);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        // Shift+Tab: レベルを下げる
+        handleDecreaseLevel(task.id);
+      } else {
+        // Tab: レベルを上げる
+        handleIncreaseLevel(task.id);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleEditStart(task); // 編集をキャンセルして元の値に戻す
+    }
+  };
+
+  // handleMoveTask関数を追加
+  const handleMoveTask = async (taskId: number, newParentId: number | undefined, newLevel: number) => {
+    try {
+      const task = hierarchicalTasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      await updateTask(taskId, {
+        ...task,
+        parent_id: newParentId,
+        level: newLevel,
+      });
+
+      await fetchTasks();
+    } catch (error) {
+      console.error('Failed to move task:', error);
     }
   };
 
@@ -348,11 +504,12 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
               <h2 className="text-lg font-normal text-gray-700">階層型タスク</h2>
             </div>
 
-            <div className="space-y-0 divide-y divide-gray-100">
+            <div className="space-y-0">
               {getVisibleTasks(hierarchicalTasks).map((task) => (
                 <HierarchicalTaskItem
                   key={task.id}
                   task={task}
+                  allTasks={hierarchicalTasks}
                   onToggleExpand={() => {
                     setExpandedTasks(prev => {
                       const next = new Set(prev);
@@ -374,6 +531,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
                   onIncreaseLevel={handleIncreaseLevel}
                   onDecreaseLevel={handleDecreaseLevel}
                   isExpanded={expandedTasks.has(task.id)}
+                  expandedTasks={expandedTasks}
                   isEditing={editingTaskId === task.id}
                   editingContent={editingContent}
                   onEditContentChange={setEditingContent}
@@ -395,6 +553,8 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
                     <span>Level: {task.level}</span>
                     <span>|</span>
                     <span>Parent: {task.parent_id || 'none'}</span>
+                    <span>|</span>
+                    <span>Position: {task.position}</span>
                   </div>
                 ))}
               </div>

@@ -9,8 +9,9 @@ import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CSS } from '@dnd-kit/utilities';
+import { addDays, subDays } from 'date-fns';
 
 interface DailyTaskSchedulerProps {
   tasks: Task[];
@@ -44,12 +45,24 @@ interface CompletionModalProps {
 const CompletionModal: React.FC<CompletionModalProps> = ({ isOpen, onClose, onSubmit }) => {
   const [description, setDescription] = useState('');
   const [outcome, setOutcome] = useState('');
+  const [hasNoOutcome, setHasNoOutcome] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ description, outcome });
+    onSubmit({ 
+      description, 
+      outcome: hasNoOutcome ? '特になし' : outcome 
+    });
     setDescription('');
     setOutcome('');
+    setHasNoOutcome(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit(e);
+    }
   };
 
   return (
@@ -85,7 +98,7 @@ const CompletionModal: React.FC<CompletionModalProps> = ({ isOpen, onClose, onSu
                 >
                   タスク完了の記録
                 </Dialog.Title>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       感想・振り返り
@@ -98,19 +111,40 @@ const CompletionModal: React.FC<CompletionModalProps> = ({ isOpen, onClose, onSu
                       required
                     />
                   </div>
-                  <div className="mb-6">
+                  <div className="mb-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       成果物・結果
                     </label>
-                    <textarea
-                      value={outcome}
-                      onChange={(e) => setOutcome(e.target.value)}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      rows={3}
-                      required
-                    />
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="no-outcome"
+                          checked={hasNoOutcome}
+                          onChange={(e) => {
+                            setHasNoOutcome(e.target.checked);
+                            if (e.target.checked) {
+                              setOutcome('');
+                            }
+                          }}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="no-outcome" className="ml-2 text-sm text-gray-600">
+                          特になし
+                        </label>
+                      </div>
+                      {!hasNoOutcome && (
+                        <textarea
+                          value={outcome}
+                          onChange={(e) => setOutcome(e.target.value)}
+                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          rows={3}
+                          required={!hasNoOutcome}
+                        />
+                      )}
+                    </div>
                   </div>
-                  <div className="flex justify-end gap-3">
+                  <div className="mt-6 flex justify-end gap-3">
                     <button
                       type="button"
                       onClick={onClose}
@@ -122,7 +156,7 @@ const CompletionModal: React.FC<CompletionModalProps> = ({ isOpen, onClose, onSu
                       type="submit"
                       className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
-                      記録する
+                      記録する (Ctrl+Enter)
                     </button>
                   </div>
                 </form>
@@ -134,6 +168,44 @@ const CompletionModal: React.FC<CompletionModalProps> = ({ isOpen, onClose, onSu
     </Transition>
   );
 };
+
+// QuickAddItemType型を追加
+interface QuickAddItemType {
+  title: string;
+  estimatedMinutes: number;
+  icon?: React.ReactNode;
+}
+
+// よく使うアイテムの定義を追加
+const quickAddItems: QuickAddItemType[] = [
+  {
+    title: 'タスクのスケジュール',
+    estimatedMinutes: 15,
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    )
+  },
+  {
+    title: 'ミーティング',
+    estimatedMinutes: 30,
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    )
+  },
+  {
+    title: '休憩',
+    estimatedMinutes: 15,
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  }
+];
 
 export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSchedulerProps>(
   ({ tasks, onUpdate }, ref) => {
@@ -241,7 +313,7 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
       saveDailyTasks(updatedTasks);
     };
 
-    // タスクの完了状態を切り替える関数��更新
+    // タスクの完了状態を切り替える関数を更新
     const onToggleComplete = async (taskId: number) => {
       try {
         const dailyTask = dailyTasks.find(t => t.id === taskId);
@@ -359,7 +431,7 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
 
         // 階層情報を取得
         const hierarchyInfo = completingTask.hierarchy_path 
-          ? `\n\n【タスク階層】\n${completingTask.hierarchy_path.join(' > ')} > ${completingTask.title}`
+          ? `${completingTask.hierarchy_path.join(' > ')} > ${completingTask.title}`
           : `\n\n【タスク】\n${completingTask.title}`;
 
         // 現在時刻をJSTで取得
@@ -374,7 +446,7 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            description: `【完了報告】${hierarchyInfo}\n\n感想・振り返り:\n${data.description}\n\n成果物・結果:\n${data.outcome}`,
+            description: `【完了報告】\n${hierarchyInfo}\n\n感想・振り返り:\n${data.description}\n\n成果物・結果:\n${data.outcome}`,
             started_at: now.toISOString(),
             task_id: mainTaskId
           }),
@@ -386,7 +458,7 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
           throw new Error(`Failed to create work log: ${response.status} ${response.statusText}\nDetails: ${errorText}`);
         }
 
-        // タスクを完了��態に更新
+        // タスクを完了態に更新
         await updateTaskStatus(completingTaskId, true);
 
         setIsCompletionModalOpen(false);
@@ -410,6 +482,29 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
       }));
       setDailyTasks(newTasks);
       saveDailyTasks(newTasks);
+    };
+
+    // クイックアイテム追加関数
+    const handleQuickAdd = (item: QuickAddItemType) => {
+      const newTask: DailyTask = {
+        id: Date.now(), // 一時的なID
+        title: item.title,
+        description: '',
+        status: '未着手',
+        priority: 0,
+        created_at: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+        order: dailyTasks.length,
+        estimated_minutes: item.estimatedMinutes,
+        is_completed: false,
+        motivation: 0,
+        priority_score: 0,
+        motivation_score: 0,
+      };
+
+      const updatedTasks = [...dailyTasks, newTask];
+      setDailyTasks(updatedTasks);
+      saveDailyTasks(updatedTasks);
     };
 
     // ref経由で公開する関数
@@ -549,12 +644,45 @@ export const DailyTaskScheduler = forwardRef<DailyTaskSchedulerRef, DailyTaskSch
               合計: {totalHours}時間{remainingMinutes}分
             </div>
           </div>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="border-gray-200 rounded text-sm"
-          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 1), 'yyyy-MM-dd'))}
+              className="p-1 rounded hover:bg-gray-100 text-gray-600"
+              title="前日"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
+            
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="border-gray-200 rounded text-sm"
+            />
+            
+            <button
+              onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 1), 'yyyy-MM-dd'))}
+              className="p-1 rounded hover:bg-gray-100 text-gray-600"
+              title="翌���"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* クイック追加ボタン */}
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
+          {quickAddItems.map((item, index) => (
+            <button
+              key={index}
+              onClick={() => handleQuickAdd(item)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150 whitespace-nowrap"
+            >
+              {item.icon}
+              <span>{item.title}</span>
+              <span className="text-gray-400">({item.estimatedMinutes}分)</span>
+            </button>
+          ))}
         </div>
 
         <div className="mb-4">

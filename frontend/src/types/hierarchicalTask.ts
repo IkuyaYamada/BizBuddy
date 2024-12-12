@@ -10,6 +10,7 @@ export interface HierarchicalTask {
   priority?: number;
   created_at: string;
   updated_at: string;
+  position?: number;
 }
 
 export interface TaskTreeNode extends HierarchicalTask {

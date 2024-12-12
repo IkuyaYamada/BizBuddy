@@ -10,7 +10,83 @@ const statusOrder = {
   'on hold': 2,
   'casual': 3,
   'backlog': 4,
-  '完了': 5
+};
+
+// IndexedDB設定
+const DB_NAME = 'hierarchical-tasks-db';
+const STORE_NAME = 'task-orders';
+const DB_VERSION = 1;
+
+let dbInstance: IDBDatabase | null = null;
+
+const initIndexedDB = async () => {
+  if (dbInstance) return dbInstance;
+
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => {
+      console.error('Failed to open IndexedDB:', request.error);
+      reject(request.error);
+    };
+
+    request.onsuccess = () => {
+      dbInstance = request.result;
+      resolve(request.result);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+  });
+};
+
+const getTaskOrder = async (taskId: number): Promise<number> => {
+  try {
+    const db = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(taskId);
+
+      request.onerror = () => {
+        console.error('Failed to get task order:', request.error);
+        resolve(0); // エラー時はデフォルト値を返す
+      };
+
+      request.onsuccess = () => {
+        const result = request.result;
+        resolve(result ? result.order : 0);
+      };
+    });
+  } catch (error) {
+    console.error('Error in getTaskOrder:', error);
+    return 0; // エラー時はデフォルト値を返す
+  }
+};
+
+const setTaskOrder = async (taskId: number, order: number): Promise<void> => {
+  try {
+    const db = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put({ id: taskId, order });
+
+      request.onerror = () => {
+        console.error('Failed to set task order:', request.error);
+        resolve(); // エラーを無視して続行
+      };
+
+      request.onsuccess = () => resolve();
+    });
+  } catch (error) {
+    console.error('Error in setTaskOrder:', error);
+    // エラーを無視して続行
+  }
 };
 
 export const useHierarchicalTasks = (tasks: Task[]) => {
@@ -19,13 +95,20 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
   const [error, setError] = useState<Error | null>(null);
 
   // タスクの取得とソート
-  const sortMainTasks = useCallback((mainTasks: HierarchicalTask[]): HierarchicalTask[] => {
-    return [...mainTasks].sort((a, b) => {
-      // まずステータスで並び替え
+  const sortMainTasks = useCallback(async (mainTasks: HierarchicalTask[]): Promise<HierarchicalTask[]> => {
+    const tasksWithOrder = await Promise.all(
+      mainTasks.map(async (task) => {
+        const order = await getTaskOrder(task.id) || 0;
+        return { ...task, order };
+      })
+    );
+
+    return tasksWithOrder.sort((a, b) => {
+      // まずステータスで並び替え（ただし完了状態は考慮しない）
       const taskA = tasks.find(t => t.id === a.id);
       const taskB = tasks.find(t => t.id === b.id);
-      const statusA = taskA?.status || '未着手';
-      const statusB = taskB?.status || '未着手';
+      const statusA = taskA?.status === '完了' ? taskA.previous_status || '未着手' : (taskA?.status || '未着手');
+      const statusB = taskB?.status === '完了' ? taskB.previous_status || '未着手' : (taskB?.status || '未着手');
       
       const orderA = statusOrder[statusA as keyof typeof statusOrder];
       const orderB = statusOrder[statusB as keyof typeof statusOrder];
@@ -34,11 +117,25 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
         return (orderA ?? 999) - (orderB ?? 999);
       }
 
-      // 同ステータス内では優先度の降順で並び替え
+      // 次に表示順序で並び替え
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+
+      // 最後に優先度で並び替え
       const priorityA = taskA?.priority || 0;
       const priorityB = taskB?.priority || 0;
       return priorityB - priorityA;
     });
+  }, [tasks]);
+
+  // タスクの移動時に表示順序を更新
+  const updateTaskOrders = useCallback(async (taskId: number, newOrder: number) => {
+    try {
+      await setTaskOrder(taskId, newOrder);
+    } catch (error) {
+      console.error('Failed to update task order:', error);
+    }
   }, []);
 
   // タスクをツリー構造に整理する関数
@@ -52,6 +149,18 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
       acc[parentId].push(task);
       return acc;
     }, {} as Record<string | number, HierarchicalTask[]>);
+
+    // 各グループ内でソート（完了したタスクを下に）
+    Object.values(tasksByParent).forEach(group => {
+      group.sort((a, b) => {
+        // まず完了状態で比較
+        if (a.is_completed !== b.is_completed) {
+          return a.is_completed ? 1 : -1;
+        }
+        // 次にposition値で比較（nullやundefinedの場合は0として扱う）
+        return (a.position || 0) - (b.position || 0);
+      });
+    });
 
     // ルートレベルのタスクを取得（parent_idがnullまたはundefinedのタスク）
     const rootTasks = tasks.filter(task => !task.parent_id);
@@ -86,10 +195,12 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
   }, []);
 
   // タスクの取得
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (silent: boolean = false) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
       const data = await api.getHierarchicalTasks();
       
       // 既存のタスクを第一階層として表示
@@ -105,42 +216,95 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
       }));
 
       // 第一階層のタスクをソート
-      const sortedMainTasks = sortMainTasks(mainTasks);
+      const sortedMainTasks = await sortMainTasks(mainTasks);
       
       // すべてのタスクを組み合わせてツリー構造に整理（重複を防ぐ）
       const allTasks = Array.from(
         new Map([...sortedMainTasks, ...data].map(task => [task.id, task])).values()
       );
-      setHierarchicalTasks(organizeTasksIntoTree(allTasks));
+
+      // 現在の状態と新しい状態を比較
+      const currentIds = new Set(hierarchicalTasks.map(t => t.id));
+      const newIds = new Set(allTasks.map(t => t.id));
+      const hasChanges = 
+        allTasks.length !== hierarchicalTasks.length ||
+        allTasks.some(task => {
+          const currentTask = hierarchicalTasks.find(t => t.id === task.id);
+          return !currentTask || 
+                 currentTask.title !== task.title ||
+                 currentTask.is_completed !== task.is_completed ||
+                 currentTask.parent_id !== task.parent_id;
+        });
+
+      // 変更がある場合のみ状態を更新
+      if (hasChanges) {
+        setHierarchicalTasks(organizeTasksIntoTree(allTasks));
+      }
     } catch (error) {
-      setError(error as Error);
+      if (!silent) {
+        setError(error as Error);
+      }
       console.error('Failed to fetch tasks:', error);
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
-  }, [tasks, sortMainTasks, organizeTasksIntoTree]);
+  }, [tasks, sortMainTasks, organizeTasksIntoTree, hierarchicalTasks]);
 
   // タスクの追加
   const addTask = useCallback(async (parentId?: number, level: number = 0) => {
     try {
-      const newTask = await api.createHierarchicalTask({
-        title: 'しいタスク',
+      // 同じ親を持つタスクの中で最大のposition値を取得
+      const siblingTasks = hierarchicalTasks.filter(t => t.parent_id === parentId);
+      const maxPosition = siblingTasks.reduce((max, task) => 
+        Math.max(max, task.position || 0), 0);
+      const newPosition = maxPosition + 1000; // 1000ずつ増やして余裕を持たせる
+
+      // 仮のIDを生成
+      const tempId = Date.now();
+      const tempTask: HierarchicalTask = {
+        id: tempId,
+        title: '',
         is_completed: false,
         parent_id: parentId,
         level,
-      });
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        position: newPosition,
+      };
 
+      // 楽観的更新
       setHierarchicalTasks(prev => {
-        const newTasks = [...prev, { ...newTask, children: [] }];
+        const newTasks = [...prev, tempTask];
         return organizeTasksIntoTree(newTasks);
       });
 
-      return newTask;
+      // APIを呼び出し
+      const newTask = await api.createHierarchicalTask({
+        title: '',
+        is_completed: false,
+        parent_id: parentId,
+        level,
+        position: newPosition,
+      });
+
+      // 最終的な更新
+      setHierarchicalTasks(prev => {
+        const updatedTasks = prev.map(task => 
+          task.id === tempId ? { ...newTask, position: newPosition } : task
+        );
+        return organizeTasksIntoTree(updatedTasks);
+      });
+
+      return { ...newTask, position: newPosition };
     } catch (error) {
+      // エラー時は元の状態に戻す
+      await fetchTasks();
       console.error('Failed to add task:', error);
       throw error;
     }
-  }, [organizeTasksIntoTree]);
+  }, [hierarchicalTasks, organizeTasksIntoTree, fetchTasks]);
 
   // タスクの削除
   const deleteTask = useCallback(async (taskId: number) => {
@@ -177,30 +341,44 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
       const task = hierarchicalTasks.find(t => t.id === taskId);
       if (!task) throw new Error('Task not found');
 
-      const updatedTask = await api.updateHierarchicalTask(taskId, {
-        ...task,
-        ...updates,
+      // 楽観的更新
+      setHierarchicalTasks(prev => {
+        const updatedTasks = prev.map(t => 
+          t.id === taskId ? { ...t, ...updates } : t
+        );
+        return organizeTasksIntoTree(updatedTasks);
       });
 
-      // 重複を防ぐため、IDでユニーク化してから更新
+      // APIに送信するデータを準備
+      const apiUpdates = {
+        title: updates.title ?? task.title,
+        description: updates.description ?? task.description ?? '',
+        is_completed: updates.is_completed ?? task.is_completed,
+        parent_id: updates.parent_id,
+        level: updates.level ?? task.level,
+        deadline: updates.deadline,
+        priority: updates.priority ?? task.priority ?? 0,
+      };
+
+      // APIを呼び出し
+      const updatedTask = await api.updateHierarchicalTask(taskId, apiUpdates);
+
+      // APIの結果で再更新（エラーがあった場合の修正のため）
       setHierarchicalTasks(prev => {
-        // 既存のタスクから更新対象のタスクを除外
-        const filteredTasks = prev.filter(t => t.id !== taskId);
-        // 更新されたタスクを追加
-        const newTasks = [...filteredTasks, updatedTask];
-        // IDでユニーク化
-        const uniqueTasks = Array.from(
-          new Map(newTasks.map(task => [task.id, task])).values()
+        const updatedTasks = prev.map(t => 
+          t.id === taskId ? { ...t, ...updatedTask } : t
         );
-        return organizeTasksIntoTree(uniqueTasks);
+        return organizeTasksIntoTree(updatedTasks);
       });
 
       return updatedTask;
     } catch (error) {
+      // エラー時は元の状態に戻す
+      await fetchTasks();
       console.error('Failed to update task:', error);
       throw error;
     }
-  }, [hierarchicalTasks, organizeTasksIntoTree]);
+  }, [hierarchicalTasks, organizeTasksIntoTree, fetchTasks]);
 
   // 初期データの取得
   useEffect(() => {
@@ -209,9 +387,19 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
 
   // タブの可視性変更時にデータを再取得
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    let lastFetchTime = 0;
+    const FETCH_COOLDOWN = 2000; // 2秒のクールダウン
+
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        fetchTasks();
+        const now = Date.now();
+        if (now - lastFetchTime > FETCH_COOLDOWN) {
+          timeoutId = setTimeout(async () => {
+            await fetchTasks(true); // サイレントモードでフェッ
+            lastFetchTime = Date.now();
+          }, 500);
+        }
       }
     };
 
@@ -221,8 +409,33 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [fetchTasks]);
+
+  // ドラッグ＆ドロップ時の順序更新
+  const handleTaskMove = useCallback(async (taskId: number, targetIndex: number, newPosition?: number) => {
+    try {
+      if (newPosition !== undefined) {
+        await updateTaskOrders(taskId, newPosition);
+      } else {
+        await updateTaskOrders(taskId, targetIndex * 1000); // 1000単位で順序を付与
+      }
+
+      // タスクの位置情報を更新
+      const task = hierarchicalTasks.find(t => t.id === taskId);
+      if (task && newPosition !== undefined) {
+        await updateTask(taskId, {
+          ...task,
+          position: newPosition,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to handle task move:', error);
+    }
+  }, [updateTaskOrders, hierarchicalTasks, updateTask]);
 
   return {
     hierarchicalTasks,
@@ -232,5 +445,6 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     deleteTask,
     updateTask,
     fetchTasks,
+    handleTaskMove,
   };
 }; 

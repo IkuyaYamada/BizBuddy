@@ -178,6 +178,7 @@ export async function createHierarchicalTask(data: {
   level: number;
   deadline?: string;
   priority?: number;
+  position?: number;
 }) {
   const response = await fetch(`${API_BASE_URL}/hierarchical-tasks/`, {
     method: 'POST',
@@ -200,6 +201,7 @@ export async function updateHierarchicalTask(taskId: number, data: {
   level: number;
   deadline?: string;
   priority?: number;
+  position?: number;
 }) {
   const response = await fetch(`${API_BASE_URL}/hierarchical-tasks/${taskId}`, {
     method: 'PUT',
