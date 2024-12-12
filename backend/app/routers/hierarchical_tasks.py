@@ -5,7 +5,7 @@ from app.database import get_db
 from app.models.hierarchical_task import HierarchicalTask
 from app.schemas.hierarchical_task import (
     HierarchicalTaskResponse,
-    HierarchicalTaskBase as HierarchicalTaskCreate
+    HierarchicalTaskCreate
 )
 
 router = APIRouter()
