@@ -108,6 +108,9 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({ task
     try {
       const task = hierarchicalTasks.find(t => t.id === taskId);
       await deleteTask(taskId);
+      
+      // 削除後に強制的にタスク一覧を再取得
+      await fetchTasks();
 
       // 親タスクの展開状態を更新
       if (task?.parent_id) {
