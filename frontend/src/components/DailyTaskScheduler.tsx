@@ -458,7 +458,7 @@ export const DailyTaskScheduler = forwardRef<
           return;
         }
 
-        // APIコールの前にタスクの存在確
+        // APIコー��の前にタスクの存在確
         const rootTask =
           tasks.find((t) => t.id === mainTaskId) ||
           dailyTasks.find((t) => t.id === mainTaskId);
@@ -976,7 +976,7 @@ export const DailyTaskScheduler = forwardRef<
               animation: 'fadeIn 0.5s ease-out forwards',
             }}
           >
-            <div className="w-full mb-2">
+            <div className="w-full">
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15">
                 <div className="p-8">
                   {/* 階層パス */}
@@ -1003,7 +1003,7 @@ export const DailyTaskScheduler = forwardRef<
                     {dailyTasks.find((task) => task.id === focusedTaskId)?.title}
                   </div>
 
-                  {/* タイマーセクション */}
+                  {/* タイマセクション */}
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-6">
                       <button
@@ -1247,7 +1247,7 @@ export const DailyTaskScheduler = forwardRef<
 
           {/* キーボードショートカットヘルプ */}
           <div className="fixed bottom-4 right-4 text-sm text-gray-400/60">
-            <div>ESC: フォーカスモード終了</div>
+            <div>ESC: フォーカス��ード終了</div>
             <div>{navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'} + ←/→ または j/k: タスク切り替え</div>
             <div>{navigator.platform.toLowerCase().includes('mac') ? '' : 'Ctrl'} + Enter: メモ保存</div>
           </div>
@@ -1257,24 +1257,24 @@ export const DailyTaskScheduler = forwardRef<
       <div className="h-full">
         {/* ヘッダー部分 */}
         <div className="sticky top-0 bg-gradient-to-br from-gray-50 to-gray-100 border-b z-10">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-between py-3">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between py-2">
               <div>
-                <h3 className="text-xl font-medium text-gray-700">本日のタスク</h3>
-                <div className="text-sm text-gray-500 flex items-center gap-2">
+                <h3 className="text-base font-medium text-gray-700">本日のタスク</h3>
+                <div className="text-xs text-gray-500 flex items-center gap-2">
                   <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     合計: {totalHours}時間{remainingMinutes}分
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 {dailyTasks.length > 0 && (
                   <button
                     onClick={() => focusedTaskId ? setFocusedTaskId(null) : setFocusedTaskId(dailyTasks[0].id)}
-                    className={`w-8 h-8 flex items-center justify-center rounded transition-all duration-200 ${
+                    className={`w-7 h-7 flex items-center justify-center rounded transition-all duration-200 ${
                       focusedTaskId
                         ? "bg-blue-500 text-white hover:bg-blue-600"
                         : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300"
@@ -1282,7 +1282,7 @@ export const DailyTaskScheduler = forwardRef<
                     title={focusedTaskId ? "フォーカスモード解除" : "フォーカスモード開始"}
                   >
                     <svg
-                      className="w-4 h-4"
+                      className="w-3.5 h-3.5"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -1301,25 +1301,25 @@ export const DailyTaskScheduler = forwardRef<
                 )}
                 <button
                   onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
-                  className="w-8 h-8 flex items-center justify-center rounded hover:bg-white hover:shadow-sm transition-all duration-200 text-gray-500"
+                  className="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-sm transition-all duration-200 text-gray-500"
                   title="昨日"
                 >
-                  <ChevronLeftIcon className="w-4 h-4" />
+                  <ChevronLeftIcon className="w-3.5 h-3.5" />
                 </button>
 
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-600 bg-white/50"
+                  className="px-2 py-1 border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-600 bg-white/50"
                 />
 
                 <button
                   onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
-                  className="w-8 h-8 flex items-center justify-center rounded hover:bg-white hover:shadow-sm transition-all duration-200 text-gray-500"
+                  className="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-sm transition-all duration-200 text-gray-500"
                   title="翌日"
                 >
-                  <ChevronRightIcon className="w-4 h-4" />
+                  <ChevronRightIcon className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

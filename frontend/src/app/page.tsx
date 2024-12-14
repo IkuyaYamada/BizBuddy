@@ -689,7 +689,7 @@ export default function Home() {
                     </div>
                   </Tab.Panel>
                   <Tab.Panel>
-                    <div className="py-8">
+                    <div className="py-0">
                       <HierarchicalTaskView
                         tasks={tasks}
                         onUpdate={fetchTasks}
