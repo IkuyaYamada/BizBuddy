@@ -474,7 +474,7 @@ export const DailyTaskScheduler = forwardRef<
             }`
           : `\n\n【タスク】\n${completingTask.title}`;
 
-        // 現在時刻をJSTで取得
+        // 現刻をJSTで取得
         const now = new Date();
         const jstOffset = 9 * 60; // JSTは+9時
         now.setMinutes(now.getMinutes() + jstOffset);
@@ -595,7 +595,7 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // フ���ーカスが除されたらタイマをリセット
+  // フォーカスモードが除されたらタイマをリセット
   useEffect(() => {
     if (!focusedTaskId) {
       if (timerRef.current) {
@@ -828,21 +828,21 @@ export const DailyTaskScheduler = forwardRef<
       <div
         ref={setNodeRef}
         style={style}
-        className={`relative flex items-center gap-3 p-4 rounded-xl transition-all duration-300 bg-white border shadow-sm ${
+        className={`relative flex items-start gap-1.5 py-1.5 transition-all duration-300 bg-white hover:bg-gray-50 ${
           task.is_completed
             ? "border-green-200 bg-green-50/50"
-            : "border-gray-200 hover:border-gray-300 hover:shadow-md"
+            : "hover:bg-gray-50"
         }`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <div
             {...attributes}
             {...listeners}
-            className="cursor-move p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+            className="cursor-move p-1 hover:bg-gray-100 rounded transition-colors duration-200"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 text-gray-400"
+              className="h-3.5 w-3.5 text-gray-400"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -855,122 +855,52 @@ export const DailyTaskScheduler = forwardRef<
               />
             </svg>
           </div>
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={() => handleMoveTask(task.id, "up")}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 text-gray-400 hover:text-gray-600"
-              disabled={index === 0}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 15l7-7 7 7"
-                />
-              </svg>
-            </button>
-            <button
-              onClick={() => handleMoveTask(task.id, "down")}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 text-gray-400 hover:text-gray-600"
-              disabled={index === dailyTasks.length - 1}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-          </div>
         </div>
-        <span className="text-sm font-mono text-gray-400 w-6">{index + 1}</span>
-        <div className="flex-1">
+
+        <div className="flex-1 min-w-0">
           {task.hierarchy_path && task.hierarchy_path.length > 0 && (
-            <div className="text-xs text-gray-400 mb-1 font-mono">
+            <div className="text-xs text-gray-400 mb-0.5 font-mono">
               {task.hierarchy_path.join(" > ")}
             </div>
           )}
           <div
-            className={`text-sm transition-all duration-300 ${
-              task.is_completed
-                ? "line-through text-green-600"
-                : "text-gray-700"
+            className={`text-base whitespace-pre-wrap break-words ${
+              task.is_completed ? "text-green-600 line-through" : "text-gray-600"
             }`}
           >
             {task.title}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded text-sm">
             <input
               type="number"
               value={task.estimated_minutes || 30}
               onChange={(e) => onUpdateTime(task.id, parseInt(e.target.value))}
-              className="w-16 text-sm bg-transparent border-0 focus:ring-0 text-gray-700"
+              className="w-12 bg-transparent border-0 focus:ring-0 text-gray-600 p-0"
               min="5"
               step="5"
             />
-            <span className="text-sm text-gray-500">分</span>
+            <span className="text-gray-500">分</span>
           </div>
           <button
-            onClick={() => handleFocusToggle(task.id)}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 ${
-              isFocused
-                ? "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-            }`}
-            title={isFocused ? "フォーカスモードを解除" : "フォーカスモードを開始"}
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d={
-                  isFocused
-                    ? "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                }
-              />
-            </svg>
-          </button>
-          <button
             onClick={() => onRemove(task.id)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 text-gray-400 hover:text-gray-600"
+            className="p-1 hover:bg-gray-100 rounded transition-colors duration-200 text-gray-400"
           >
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="h-4 w-4" />
           </button>
           <button
             onClick={() => onToggleComplete(task.id)}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 ${
+            className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
               task.is_completed
-                ? "bg-green-100 text-green-600 hover:bg-green-200"
-                : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                ? "bg-gray-100 text-gray-400"
+                : "bg-gray-50 text-gray-300 hover:bg-gray-100 hover:text-gray-400"
             }`}
             title={task.is_completed ? "完了を取り消す" : "完了にする"}
           >
             <svg
-              className="w-5 h-5"
+              className="w-3.5 h-3.5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -1041,7 +971,7 @@ export const DailyTaskScheduler = forwardRef<
       {focusedTaskId && (
         <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-md z-40 flex items-center justify-center transition-all duration-500">
           <div 
-            className="w-full h-screen max-w-5xl mx-auto px-4 py-8 flex flex-col opacity-0 animate-fade-in"
+            className="w-full h-screen max-w-7xl mx-auto px-4 py-8 flex flex-col opacity-0 animate-fade-in"
             style={{
               animation: 'fadeIn 0.5s ease-out forwards',
             }}
@@ -1286,7 +1216,7 @@ export const DailyTaskScheduler = forwardRef<
                 className="hover:bg-white/20"
               />
 
-              {/* 作業ログ表示エリア */}
+              {/* 作業ログ示エリア */}
               <div className="p-8 pt-2">
                 <h3 className="text-lg font-medium text-white/90 mb-6">作業ログ</h3>
                 <div 
@@ -1307,7 +1237,7 @@ export const DailyTaskScheduler = forwardRef<
                   ))}
                   {rootTaskWorkLogs.length === 0 && (
                     <div className="text-center text-gray-400/60">
-                      作業ログはありません
+                      作業ログはありまん
                     </div>
                   )}
                 </div>
@@ -1319,151 +1249,186 @@ export const DailyTaskScheduler = forwardRef<
           <div className="fixed bottom-4 right-4 text-sm text-gray-400/60">
             <div>ESC: フォーカスモード終了</div>
             <div>{navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'} + ←/→ または j/k: タスク切り替え</div>
-            <div>{navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'} + Enter: メモ保存</div>
+            <div>{navigator.platform.toLowerCase().includes('mac') ? '' : 'Ctrl'} + Enter: メモ保存</div>
           </div>
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-8 pt-0 pb-4">
+      <div className="h-full">
         {/* ヘッダー部分 */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h3 className="text-2xl font-medium text-gray-800 mb-2">本日のタスク</h3>
-            <div className="text-base text-gray-500 flex items-center gap-2">
-              <span className="flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                合計: {totalHours}時間{remainingMinutes}分
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
-              className="p-2 rounded-lg hover:bg-white hover:shadow-md transition-all duration-200 text-gray-600"
-              title="昨日"
-            >
-              <ChevronLeftIcon className="w-5 h-5" />
-            </button>
-
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            />
-
-            <button
-              onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
-              className="p-2 rounded-lg hover:bg-white hover:shadow-md transition-all duration-200 text-gray-600"
-              title="翌日"
-            >
-              <ChevronRightIcon className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* クイック追加ボタン */}
-        <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
-          {quickAddItems.map((item, index) => (
-            <button
-              key={index}
-              onClick={() => handleQuickAdd(item)}
-              className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-gray-300 transition-all duration-200 whitespace-nowrap group"
-            >
-              <span className="text-gray-400 group-hover:text-blue-500 transition-colors duration-200">
-                {item.icon}
-              </span>
-              <span>{item.title}</span>
-              <span className="text-gray-400">({item.estimatedMinutes}分)</span>
-            </button>
-          ))}
-        </div>
-
-        {/* プログレスバー */}
-        <div className="mb-6 bg-white p-6 rounded-2xl shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-4">
-              <div className="text-3xl font-bold text-blue-600">
-                {dailyTasks.filter((task) => task.is_completed).length}
-                <span className="text-gray-400 font-normal"> / {dailyTasks.length}</span>
+        <div className="sticky top-0 bg-gradient-to-br from-gray-50 to-gray-100 border-b z-10">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between py-3">
+              <div>
+                <h3 className="text-xl font-medium text-gray-700">本日のタスク</h3>
+                <div className="text-sm text-gray-500 flex items-center gap-2">
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    合計: {totalHours}時間{remainingMinutes}分
+                  </span>
+                </div>
               </div>
-              <div className="text-sm font-medium text-gray-500">完了タスク</div>
-            </div>
-            {dailyTasks.length > 0 && (
-              <p className="text-gray-600 font-medium">
-                {dailyTasks.every((task) => task.is_completed)
-                  ? "🎉 素晴らしい！今日のタスクを全て完了しました！"
-                  : `💪 あと${
-                      dailyTasks.length -
-                      dailyTasks.filter((task) => task.is_completed).length
-                    }個のタスク目標！`}
-              </p>
-            )}
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 ease-out"
-              style={{
-                width: `${
-                  dailyTasks.length > 0
-                    ? (dailyTasks.filter((task) => task.is_completed).length /
-                        dailyTasks.length) *
-                      100
-                    : 0
-                }%`,
-              }}
-            />
-          </div>
-        </div>
+              <div className="flex items-center gap-2">
+                {dailyTasks.length > 0 && (
+                  <button
+                    onClick={() => focusedTaskId ? setFocusedTaskId(null) : setFocusedTaskId(dailyTasks[0].id)}
+                    className={`w-8 h-8 flex items-center justify-center rounded transition-all duration-200 ${
+                      focusedTaskId
+                        ? "bg-blue-500 text-white hover:bg-blue-600"
+                        : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300"
+                    }`}
+                    title={focusedTaskId ? "フォーカスモード解除" : "フォーカスモード開始"}
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={focusedTaskId
+                          ? "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        }
+                      />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
+                  className="w-8 h-8 flex items-center justify-center rounded hover:bg-white hover:shadow-sm transition-all duration-200 text-gray-500"
+                  title="昨日"
+                >
+                  <ChevronLeftIcon className="w-4 h-4" />
+                </button>
 
-        {/* タスクリスト */}
-        <div className="space-y-3">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={dailyTasks.map((t) => t.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {dailyTasks.map((task, index) => (
-                <MemoizedSortableTaskItem
-                  key={task.id}
-                  task={task}
-                  index={index}
-                  onRemove={handleRemoveTask}
-                  onUpdateTime={updateEstimatedTime}
-                  onToggleComplete={onToggleComplete}
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-600 bg-white/50"
                 />
-              ))}
-            </SortableContext>
-          </DndContext>
+
+                <button
+                  onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
+                  className="w-8 h-8 flex items-center justify-center rounded hover:bg-white hover:shadow-sm transition-all duration-200 text-gray-500"
+                  title="翌日"
+                >
+                  <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {dailyTasks.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
-            <div className="mb-4 text-gray-400">
-              <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <p className="text-lg font-medium text-gray-700 mb-2">今日のタスクを設定しよう！</p>
-            <p className="text-sm text-gray-500">階層型タスクから追加できます</p>
+        {/* メインコンテンツ */}
+        <div className="max-w-7xl mx-auto py-3">
+          {/* クイック追加ボタン */}
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
+            {quickAddItems.map((item, index) => (
+              <button
+                key={index}
+                onClick={() => handleQuickAdd(item)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-gray-300 transition-all duration-200 whitespace-nowrap group"
+              >
+                <span className="text-gray-400 group-hover:text-blue-500 transition-colors duration-200">
+                  {item.icon}
+                </span>
+                <span>{item.title}</span>
+                <span className="text-gray-400">({item.estimatedMinutes}分)</span>
+              </button>
+            ))}
           </div>
-        )}
 
-        <CompletionModal
-          isOpen={isCompletionModalOpen}
-          onClose={() => {
-            setIsCompletionModalOpen(false);
-            setCompletingTaskId(null);
-          }}
-          onSubmit={handleCompletionSubmit}
-        />
+          {/* プログレスバー */}
+          <div className="mb-4 bg-white p-3 rounded-xl shadow-sm">
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-3">
+                <div className="text-2xl font-bold text-blue-600">
+                  {dailyTasks.filter((task) => task.is_completed).length}
+                  <span className="text-gray-400 font-normal"> / {dailyTasks.length}</span>
+                </div>
+                <div className="text-sm font-medium text-gray-500">完了タスク</div>
+              </div>
+              {dailyTasks.length > 0 && (
+                <p className="text-gray-600 font-medium">
+                  {dailyTasks.every((task) => task.is_completed)
+                    ? "🎉 素晴らしい！今日のタスクを全て完了しました！"
+                    : `💪 あと${
+                        dailyTasks.length -
+                        dailyTasks.filter((task) => task.is_completed).length
+                      }個のタスク目標！`}
+                </p>
+              )}
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 ease-out"
+                style={{
+                  width: `${
+                    dailyTasks.length > 0
+                      ? (dailyTasks.filter((task) => task.is_completed).length /
+                          dailyTasks.length) *
+                        100
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* タスクリスト */}
+          <div className="space-y-2">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={dailyTasks.map((t) => t.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {dailyTasks.map((task, index) => (
+                  <MemoizedSortableTaskItem
+                    key={task.id}
+                    task={task}
+                    index={index}
+                    onRemove={handleRemoveTask}
+                    onUpdateTime={updateEstimatedTime}
+                    onToggleComplete={onToggleComplete}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
+
+          {dailyTasks.length === 0 && (
+            <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+              <div className="mb-4 text-gray-400">
+                <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+              </div>
+              <p className="text-lg font-medium text-gray-700 mb-2">今日のタスクを設定しよう！</p>
+              <p className="text-sm text-gray-500">階層型タスクから追加できます</p>
+            </div>
+          )}
+        </div>
       </div>
+
+      <CompletionModal
+        isOpen={isCompletionModalOpen}
+        onClose={() => {
+          setIsCompletionModalOpen(false);
+          setCompletingTaskId(null);
+        }}
+        onSubmit={handleCompletionSubmit}
+      />
     </div>
   );
 });

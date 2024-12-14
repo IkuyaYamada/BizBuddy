@@ -620,6 +620,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
                   if (savedSizes) {
                     setPanelSizes(JSON.parse(savedSizes));
                   }
+                  // リサイズハンドラが反転しないようにおまじない
                   fetchTasks();
                 }}
                 className="absolute top-2 left-2 inline-flex items-center px-3 py-1.5 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150"
