@@ -52,7 +52,16 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
       return null;
     }
   });
-  const [editingContent, setEditingContent] = useState("");
+
+  const [editingContent, setEditingContent] = useState(() => {
+    try {
+      const savedState = localStorage.getItem(LAST_EDIT_STATE_KEY);
+      return savedState ? JSON.parse(savedState).content : "";
+    } catch {
+      return "";
+    }
+  });
+
   const schedulerRef = useRef<DailyTaskSchedulerRef>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(() => {
     try {
@@ -111,14 +120,54 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
   // 編集状態の保存
   useEffect(() => {
     if (editingTaskId !== null) {
+      const input = document.querySelector(
+        `input[data-task-id="${editingTaskId}"]`
+      ) as HTMLInputElement;
+      const cursorPosition = input?.selectionStart || 0;
+
       localStorage.setItem(
         LAST_EDIT_STATE_KEY,
         JSON.stringify({
           taskId: editingTaskId,
           content: editingContent,
+          cursorPosition: cursorPosition
         })
       );
     }
+  }, [editingTaskId, editingContent]);
+
+  // タブ切り替え時のデータ保持
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        try {
+          const savedState = localStorage.getItem(LAST_EDIT_STATE_KEY);
+          if (savedState) {
+            const { taskId, content } = JSON.parse(savedState);
+            setEditingTaskId(taskId);
+            setEditingContent(content);
+          }
+        } catch (error) {
+          console.error("Failed to restore edit state:", error);
+        }
+      } else if (!document.hidden && editingTaskId !== null) {
+        localStorage.setItem(
+          LAST_EDIT_STATE_KEY,
+          JSON.stringify({
+            taskId: editingTaskId,
+            content: editingContent,
+          })
+        );
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
   }, [editingTaskId, editingContent]);
 
   const handleEditSave = async (taskId: number, content: string) => {
@@ -131,62 +180,34 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
       const task = hierarchicalTasks.find((t) => t.id === taskId);
       if (!task) return;
 
+      // 現在のカーソル位置を保存
+      const input = document.querySelector(
+        `input[data-task-id="${taskId}"]`
+      ) as HTMLInputElement;
+      const cursorPosition = input?.selectionStart || 0;
+
       await updateTask(taskId, {
         ...task,
         title: content,
       });
 
-      setEditingTaskId(null);
-      setEditingContent("");
+      // 編集状態を維持
+      setEditingContent(content);
+
+      // カーソル位置を復元（次のレンダリングサイクルで）
+      requestAnimationFrame(() => {
+        const input = document.querySelector(
+          `input[data-task-id="${taskId}"]`
+        ) as HTMLInputElement;
+        if (input) {
+          input.focus();
+          input.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      });
     } catch (error) {
       console.error("Failed to update task:", error);
     }
   };
-
-  // タブ切り替え時のデータ保持
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // 画面がアクティブになってから少し待ってからデータを更新
-        timeoutId = setTimeout(async () => {
-          //await fetchTasks();
-          // データ更新後、保存されていた編集状態を復元
-          const savedState = localStorage.getItem(LAST_EDIT_STATE_KEY);
-          if (savedState) {
-            const { taskId, content } = JSON.parse(savedState);
-            const task = hierarchicalTasks.find((t) => t.id === taskId);
-            if (task) {
-              setEditingTaskId(task.id);
-              setEditingContent(content || task.title);
-              // 次のレンダリングサイクルでカーソルを末尾に移動
-              // setTimeout(() => {
-              //   const input = document.querySelector(`input[data-task-id="${task.id}"]`) as HTMLInputElement;
-              //   if (input) {
-              //     input.focus();
-              //     const cursorPos = content ? content.length : task.title.length;
-              //     input.setSelectionRange(cursorPos, cursorPos);
-              //   }
-              // }, 0);
-            }
-          }
-        }, 1000);
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleVisibilityChange);
-    console.log("handleVisibilityChangeが発動");
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleVisibilityChange);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [fetchTasks, hierarchicalTasks]);
 
   const handleAddTask = async () => {
     try {
@@ -205,7 +226,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
         setEditingTaskId(newTask.id);
         setEditingContent(newTask.title);
       } else {
-        // ルートタスクが1つもな��場合は、新しいルートタスクを作成
+        // ルートタスクが1つもない場合は、新しいルートタスクを作成
         const newRootTask = await addTask(undefined, 0);
         const newSubTask = await addTask(newRootTask.id, 1);
         setExpandedTasks((prev) => {
@@ -268,7 +289,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
 
   const handleDeleteTask = async (taskId: number) => {
     try {
-      // 削除前に一つ上のタスクを特定
+      // 削除前に一つ上の��スクを特定
       const currentTaskIndex = hierarchicalTasks.findIndex(
         (t) => t.id === taskId
       );
@@ -281,6 +302,18 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
       if (previousTask) {
         setEditingTaskId(previousTask.id);
         setEditingContent(previousTask.title);
+        
+        // 編集開始時のカーソル制御を setTimeout で遅延させる
+        setTimeout(() => {
+          const input = document.querySelector(
+            `input[data-task-id="${previousTask.id}"]`
+          ) as HTMLInputElement;
+          if (input) {
+            input.focus();
+            // カーソルは先頭に配置（必要に応じて変更可能）
+            input.setSelectionRange(0, 0);
+          }
+        }, 100); // タイミングを少し遅らせる
       }
     } catch (error) {
       console.error("Failed to delete task:", error);
@@ -308,7 +341,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
       const task = hierarchicalTasks.find((t) => t.id === taskId);
       if (!task) return;
 
-      // ルートレベルのタスクからの追加の場合は、子タスクとして追加
+      // ルートレベルのタスクからの追加の場合は、子スクとして追加
       if (task.level === 0) {
         const newTask = await addTask(taskId, 1); // 親タスクのIDを指定し、レベルを1に設定
         setEditingTaskId(newTask.id);
@@ -413,19 +446,14 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
   };
 
   const handleEditStart = (task: HierarchicalTask) => {
+    // 既に編集中の場合は何もしない
+    if (editingTaskId === task.id) {
+      return;
+    }
+
     setEditingTaskId(task.id);
     setEditingContent(task.title);
-
-    // 次のレンダリングサイクルでカーソルを末尾に移動
-    setTimeout(() => {
-      const input = document.querySelector(
-        `input[data-task-id="${task.id}"]`
-      ) as HTMLInputElement;
-      if (input) {
-        input.focus();
-        input.setSelectionRange(task.title.length, task.title.length);
-      }
-    }, 0);
+    // カーソル制御はHierarchicalTaskItemのuseEffectに任せる
   };
 
   const handleIncreaseLevel = async (taskId: number) => {
@@ -464,28 +492,6 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
       });
     } catch (error) {
       console.error("Failed to update task level:", error);
-    }
-  };
-
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    task: HierarchicalTask
-  ) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      handleEditSave(task.id, editingContent);
-    } else if (e.key === "Tab") {
-      e.preventDefault();
-      if (e.shiftKey) {
-        // Shift+Tab: レベルを下げる
-        handleDecreaseLevel(task.id);
-      } else {
-        // Tab: レベルを上げる
-        handleIncreaseLevel(task.id);
-      }
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      handleEditStart(task); // 編集をキャンセルして元の値に戻す
     }
   };
 

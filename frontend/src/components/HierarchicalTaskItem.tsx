@@ -83,6 +83,40 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
   const [targetTime] = useState(25 * 60); // 25分
   const timerRef = useRef<NodeJS.Timeout>();
   const [isComposing, setIsComposing] = useState(false);
+  const [focusedMemo, setFocusedMemo] = useState("");
+  const memoInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 作業ログを保存する関数
+  const saveWorkLog = async (description: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/tasks/${task.id}/work-logs/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description,
+          started_at: new Date().toISOString(),
+          task_id: task.id,
+        }),
+      });
+
+      if (response.ok) {
+        setFocusedMemo(""); // メモをクリア
+        if (memoInputRef.current) {
+          memoInputRef.current.style.height = "auto"; // 高さをリセット
+        }
+      }
+    } catch (error) {
+      console.error('Error saving work log:', error);
+    }
+  };
+
+  // メモの高さを自動調整する関数
+  const adjustMemoHeight = (textarea: HTMLTextAreaElement) => {
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
 
   // テキストエリアの高さを自動調整する関数
   const adjustTextareaHeight = () => {
@@ -92,6 +126,35 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
   };
+
+  // フォーカスモードの変更を監視
+  useEffect(() => {
+    if (isFocused) {
+      // フォーカスモードが有効になったら自動的にタイマーを開始
+      if (!isTimerRunning) {
+        timerRef.current = setInterval(() => {
+          setTimeElapsed((prev) => {
+            if (prev >= targetTime) {
+              if (timerRef.current) {
+                clearInterval(timerRef.current);
+              }
+              setIsTimerRunning(false);
+              return targetTime;
+            }
+            return prev + 1;
+          });
+        }, 1000);
+        setIsTimerRunning(true);
+      }
+    } else {
+      // フォーカスモードが解除されたらタイマーをリセット
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      setIsTimerRunning(false);
+      setTimeElapsed(0);
+    }
+  }, [isFocused]);
 
   // クリーンアップ
   useEffect(() => {
@@ -108,16 +171,20 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
     };
   }, []);
 
-  // 編集モード開始時にカーソルを最後に移動
-  // 編集モード開始時に移動するのは良いが、中央部分の文字を編集していても、カーソルが最後に移動してしまうので困る
+  // 編集モード開始時のカーソル制御を修正
   useEffect(() => {
     if (isEditing && inputRef.current) {
+      // 新規編集開始時のみカーソルを末尾に移動
+      const isNewEdit = document.activeElement !== inputRef.current;
+      
       inputRef.current.focus();
-      const length = editingContent.length;
-      inputRef.current.setSelectionRange(length, length);
+      if (isNewEdit) {
+        const length = editingContent.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
       adjustTextareaHeight();
     }
-  }, [isEditing, editingContent]);
+  }, [isEditing]);
 
   // タイマーの開始/停止
   const toggleTimer = () => {
@@ -143,17 +210,6 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
     }
   };
 
-  // フォーカスが解除されたらタイマーをリセット
-  useEffect(() => {
-    if (!isFocused) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      setIsTimerRunning(false);
-      setTimeElapsed(0);
-    }
-  }, [isFocused]);
-
   // 時間のフォーマット
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -162,16 +218,39 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (isComposing) {
-      return;
-    }
+    if (isComposing) return;
 
     if (e.key === "Enter") {
       e.preventDefault();
-
       if (e.ctrlKey || e.metaKey) {
         if (task.title !== editingContent) {
           await onEditSave(task.id, editingContent);
+        }
+        // メモとして保存
+        if (editingContent.trim()) {
+          try {
+            const response = await fetch(`http://localhost:8000/tasks/${task.id}/work-logs/`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                description: editingContent,
+                started_at: new Date().toISOString(),
+                task_id: task.id,
+              }),
+            });
+
+            if (response.ok) {
+              // メモを保存した後、入力欄をクリア
+              onEditContentChange("");
+              if (inputRef.current) {
+                inputRef.current.style.height = "auto";
+              }
+            }
+          } catch (error) {
+            console.error('Error saving work log:', error);
+          }
         }
       } else {
         if (task.level > 0 && task.title !== editingContent) {
@@ -179,8 +258,6 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
         }
         if (editingContent.trim()) {
           onAddSubTask(task.id);
-        } else {
-          onEditContentChange("\n");
         }
       }
     } else if (e.key === "Tab") {
@@ -193,18 +270,11 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
     } else if (e.key === "Escape") {
       e.preventDefault();
       onEditStart(task);
-    } else if (
-      e.key === "Backspace" &&
-      editingContent === "" &&
-      !e.ctrlKey &&
-      !e.metaKey
-    ) {
+    } else if (e.key === "Backspace" && editingContent === "") {
       e.preventDefault();
-
       if (canDelete) {
         onDeleteTask(task.id);
         setCanDelete(false);
-
         deleteTimeoutRef.current = setTimeout(() => {
           setCanDelete(true);
         }, 500);
@@ -240,37 +310,12 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
         const prevTask = allTasks.find((t) => t.id === prevTaskId);
         if (prevTask) {
           onEditStart(prevTask);
-          setTimeout(() => {
-            const textarea = document.querySelector(
-              `textarea[data-task-id="${prevTask.id}"]`
-            ) as HTMLTextAreaElement;
-            if (textarea) {
-              textarea.setSelectionRange(
-                textarea.value.length,
-                textarea.value.length
-              );
-            }
-          }, 0);
         }
-      } else if (
-        e.key === "ArrowDown" &&
-        currentIndex < visibleTaskIds.length - 1
-      ) {
+      } else if (e.key === "ArrowDown" && currentIndex < visibleTaskIds.length - 1) {
         const nextTaskId = visibleTaskIds[currentIndex + 1];
         const nextTask = allTasks.find((t) => t.id === nextTaskId);
         if (nextTask) {
           onEditStart(nextTask);
-          setTimeout(() => {
-            const textarea = document.querySelector(
-              `textarea[data-task-id="${nextTask.id}"]`
-            ) as HTMLTextAreaElement;
-            if (textarea) {
-              textarea.setSelectionRange(
-                textarea.value.length,
-                textarea.value.length
-              );
-            }
-          }, 0);
         }
       }
     }
@@ -442,7 +487,7 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
                 : "text-gray-400 hover:bg-gray-200"
             }`}
             title={
-              isInDailyTasks ? "本日のタスク���ら削除" : "本日のタスクに追加"
+              isInDailyTasks ? "本日のタスクから削除" : "本日のタスクに追加"
             }
           >
             <svg
@@ -488,7 +533,7 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
               />
             </svg>
           </button>
-          {isInDailyTasks && (
+          {/*{isInDailyTasks && (
             <button
               onClick={onFocusToggle}
               className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-200 ${
@@ -512,13 +557,13 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
                   strokeWidth={2}
                   d={
                     isFocused
-                      ? "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" // 虫眼鏡アイコン
+                      ? "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" // 虫眼アイコン
                       : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" // 目のアイコン
                   }
                 />
               </svg>
             </button>
-          )}
+          )}*/}
           {isFocused && (
             <div className="ml-2 flex items-center gap-2">
               <div className="text-sm text-gray-600">
@@ -534,6 +579,26 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
               >
                 {isTimerRunning ? "一時停止" : "開始"}
               </button>
+              <textarea
+                ref={memoInputRef}
+                value={focusedMemo}
+                onChange={(e) => {
+                  setFocusedMemo(e.target.value);
+                  adjustMemoHeight(e.target);
+                }}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isComposing) {
+                    e.preventDefault();
+                    if (focusedMemo.trim()) {
+                      saveWorkLog(focusedMemo);
+                    }
+                  }
+                }}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={() => setIsComposing(false)}
+                placeholder="メモを入力... (Ctrl+Enter で保存)"
+                className="flex-1 min-h-[2rem] p-2 text-sm border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none ml-2"
+              />
             </div>
           )}
         </div>
@@ -550,6 +615,28 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
                 {task.description}
               </div>
             )}
+            <div className="mt-4">
+              <textarea
+                ref={memoInputRef}
+                value={focusedMemo}
+                onChange={(e) => {
+                  setFocusedMemo(e.target.value);
+                  adjustMemoHeight(e.target);
+                }}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isComposing) {
+                    e.preventDefault();
+                    if (focusedMemo.trim()) {
+                      saveWorkLog(focusedMemo);
+                    }
+                  }
+                }}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={() => setIsComposing(false)}
+                placeholder="メモを入力... (Ctrl+Enter で保存)"
+                className="w-full min-h-[4rem] p-2 text-sm border border-gray-200 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              />
+            </div>
           </>
         )}
       </div>

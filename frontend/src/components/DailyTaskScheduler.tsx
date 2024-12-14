@@ -50,7 +50,7 @@ interface DailyTask extends Task {
   parent_id?: number;
 }
 
-// ローカルストレージのキーを生成
+// ローカルストレージキーを生成
 const getStorageKey = (date: string) => `daily_tasks_${date}`;
 
 export interface DailyTaskSchedulerRef {
@@ -73,17 +73,15 @@ const CompletionModal: React.FC<CompletionModalProps> = ({
 }) => {
   const [description, setDescription] = useState("");
   const [outcome, setOutcome] = useState("");
-  const [hasNoOutcome, setHasNoOutcome] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      description,
-      outcome: hasNoOutcome ? "特になし" : outcome,
+      description: description.trim(),
+      outcome: outcome.trim(),
     });
     setDescription("");
     setOutcome("");
-    setHasNoOutcome(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -136,44 +134,20 @@ const CompletionModal: React.FC<CompletionModalProps> = ({
                       onChange={(e) => setDescription(e.target.value)}
                       className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       rows={3}
-                      required
+                      placeholder="任意"
                     />
                   </div>
                   <div className="mb-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       成果物・結果
                     </label>
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="no-outcome"
-                          checked={hasNoOutcome}
-                          onChange={(e) => {
-                            setHasNoOutcome(e.target.checked);
-                            if (e.target.checked) {
-                              setOutcome("");
-                            }
-                          }}
-                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                        />
-                        <label
-                          htmlFor="no-outcome"
-                          className="ml-2 text-sm text-gray-600"
-                        >
-                          特になし
-                        </label>
-                      </div>
-                      {!hasNoOutcome && (
-                        <textarea
-                          value={outcome}
-                          onChange={(e) => setOutcome(e.target.value)}
-                          className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                          rows={3}
-                          required={!hasNoOutcome}
-                        />
-                      )}
-                    </div>
+                    <textarea
+                      value={outcome}
+                      onChange={(e) => setOutcome(e.target.value)}
+                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      rows={3}
+                      placeholder="任意"
+                    />
                   </div>
                   <div className="mt-6 flex justify-end gap-3">
                     <button
@@ -286,6 +260,9 @@ export const DailyTaskScheduler = forwardRef<
   const timerRef = useRef<NodeJS.Timeout>();
   const [focusMemo, setFocusMemo] = useState("");
   const memoRef = useRef<HTMLTextAreaElement>(null);
+  const [rootTaskWorkLogs, setRootTaskWorkLogs] = useState<any[]>([]);
+  const [editingContent, setEditingContent] = useState("");
+  const [cursorPosition, setCursorPosition] = useState<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -365,19 +342,26 @@ export const DailyTaskScheduler = forwardRef<
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = dailyTasks.findIndex((t) => t.id === active.id);
-    const newIndex = dailyTasks.findIndex((t) => t.id === over.id);
+    setDailyTasks((prevTasks) => {
+      const oldIndex = prevTasks.findIndex((t) => t.id === active.id);
+      const newIndex = prevTasks.findIndex((t) => t.id === over.id);
 
-    if (oldIndex !== -1 && newIndex !== -1) {
-      const newTasks = arrayMove(dailyTasks, oldIndex, newIndex).map(
+      if (oldIndex === -1 || newIndex === -1) return prevTasks;
+
+      const newTasks = arrayMove(prevTasks, oldIndex, newIndex).map(
         (task, index) => ({
           ...task,
           order: index,
         })
       );
-      setDailyTasks(newTasks);
-      saveDailyTasks(newTasks);
-    }
+
+      // localStorage の更新を非同期で行う
+      requestAnimationFrame(() => {
+        saveDailyTasks(newTasks);
+      });
+
+      return newTasks;
+    });
   };
 
   const updateEstimatedTime = (taskId: number, minutes: number) => {
@@ -401,7 +385,7 @@ export const DailyTaskScheduler = forwardRef<
         return;
       }
 
-      // 完了から未完了への変更は直接処理
+      // 完了から未了への変更は直接処理
       await updateTaskStatus(taskId, false);
     } catch (error) {
       console.error("Failed to update task status:", error);
@@ -439,120 +423,92 @@ export const DailyTaskScheduler = forwardRef<
     if (!completingTaskId) return;
 
     try {
-      // 完了するタスクを取得
-      const completingTask = dailyTasks.find((t) => t.id === completingTaskId);
-      if (!completingTask) {
-        console.error("Completing task not found");
-        return;
-      }
-
-      // 階層を辿って根のタスクを見つける
-      const findRootTask = (
-        taskId: number,
-        visited = new Set<number>()
-      ): number => {
-        console.log("Finding root for task:", taskId);
-
-        // 循環参照防止
-        if (visited.has(taskId)) {
-          console.log("Circular reference detected for task:", taskId);
-          return taskId;
-        }
-        visited.add(taskId);
-
-        // まず通常のタスクとして探す
-        const task = tasks.find((t) => t.id === taskId);
-        if (task) {
-          console.log("Found task in regular tasks:", task);
-          if (!task.parent_id) {
-            console.log("This is a root task");
-            return task.id;
-          }
-          return findRootTask(task.parent_id, visited);
-        }
-
-        // 完了タスクの親IDを取得
-        const currentTask = dailyTasks.find((t) => t.id === taskId);
-        if (!currentTask) {
-          console.log("Task not found in dailyTasks:", taskId);
-          return taskId;
-        }
-        console.log("Found task in dailyTasks:", currentTask);
-
-        if (!currentTask.parent_id) {
-          console.log("No parent_id found for task:", taskId);
-          return taskId;
-        }
-
-        // 親タスクを探す
-        const parentTask = tasks.find((t) => t.id === currentTask.parent_id);
-        if (parentTask) {
-          console.log("Found parent task:", parentTask);
-          if (!parentTask.parent_id) {
-            console.log("Parent is a root task");
-            return parentTask.id;
-          }
-          return findRootTask(parentTask.parent_id, visited);
-        }
-
-        console.log(
-          "Parent task not found, trying to find in dailyTasks:",
-          currentTask.parent_id
-        );
-        return findRootTask(currentTask.parent_id, visited);
-      };
-
-      // 根のタスクIDを取得
-      const mainTaskId = findRootTask(completingTaskId);
-      console.log("Final root task ID:", mainTaskId);
-
-      // APIコールの前にタスクの存在確認
-      const rootTask =
-        tasks.find((t) => t.id === mainTaskId) ||
-        dailyTasks.find((t) => t.id === mainTaskId);
-      if (!rootTask) {
-        console.error("Root task not found:", mainTaskId);
-        throw new Error("Root task not found");
-      }
-
-      // 階層情報を取得
-      const hierarchyInfo = completingTask.hierarchy_path
-        ? `${completingTask.hierarchy_path.join(" > ")} > ${
-            completingTask.title
-          }`
-        : `\n\n【タスク】\n${completingTask.title}`;
-
-      // 現在時刻をJSTで取得
-      const now = new Date();
-      const jstOffset = 9 * 60; // JSTは+9時間
-      now.setMinutes(now.getMinutes() + jstOffset);
-
-      // ワークログを作成
-      const response = await fetch(
-        `http://localhost:8000/tasks/${mainTaskId}/work-logs`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            description: `【完了報告】\n${hierarchyInfo}\n\n感想・振り返り:\n${data.description}\n\n成果物・結果:\n${data.outcome}`,
-            started_at: now.toISOString(),
-            task_id: mainTaskId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("API Error:", errorText);
-        throw new Error(
-          `Failed to create work log: ${response.status} ${response.statusText}\nDetails: ${errorText}`
-        );
-      }
-
       // タスクを完了態に更新
       await updateTaskStatus(completingTaskId, true);
+
+      // 感想が入力されている場合のみワークログを作成
+      if (data.description.trim()) {
+        // 完了するタスクを取得
+        const completingTask = dailyTasks.find((t) => t.id === completingTaskId);
+        if (!completingTask) {
+          console.error("Completing task not found");
+          return;
+        }
+
+        // 階層を辿って根のタスクを見つける
+        const findRootTask = (
+          taskId: number,
+          visited = new Set<number>()
+        ): number => {
+          if (visited.has(taskId)) {
+            return taskId;
+          }
+          visited.add(taskId);
+
+          const task = tasks.find((t) => t.id === taskId);
+          if (task) {
+            if (!task.parent_id) {
+              return task.id;
+            }
+            return findRootTask(task.parent_id, visited);
+          }
+
+          const currentTask = dailyTasks.find((t) => t.id === taskId);
+          if (!currentTask || !currentTask.parent_id) {
+            return taskId;
+          }
+
+          return findRootTask(currentTask.parent_id, visited);
+        };
+
+        // 根のタスクIDを取得
+        const mainTaskId = findRootTask(completingTaskId);
+
+        // APIコールの前にタスクの存在確認
+        const rootTask =
+          tasks.find((t) => t.id === mainTaskId) ||
+          dailyTasks.find((t) => t.id === mainTaskId);
+        if (!rootTask) {
+          console.error("Root task not found:", mainTaskId);
+          throw new Error("Root task not found");
+        }
+
+        // 階層情報を取得
+        const hierarchyInfo = completingTask.hierarchy_path
+          ? `${completingTask.hierarchy_path.join(" > ")} > ${
+              completingTask.title
+            }`
+          : `\n\n【タスク】\n${completingTask.title}`;
+
+        // 現在時刻をJSTで取得
+        const now = new Date();
+        const jstOffset = 9 * 60; // JSTは+9時
+        now.setMinutes(now.getMinutes() + jstOffset);
+
+        // ワークログを作成
+        const response = await fetch(
+          `http://localhost:8000/tasks/${mainTaskId}/work-logs/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              description: `【完了報告】\n${hierarchyInfo}\n\n感想・振り返り:\n${data.description}\n\n成果物・結果:\n${data.outcome}`,
+              started_at: now.toISOString(),
+              task_id: mainTaskId,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("API Error:", errorText);
+          throw new Error(
+            `Failed to create work log: ${response.status} ${response.statusText}\nDetails: ${errorText}`
+          );
+        }
+      }
 
       setIsCompletionModalOpen(false);
       setCompletingTaskId(null);
@@ -679,30 +635,104 @@ export const DailyTaskScheduler = forwardRef<
   const saveMemo = async () => {
     if (focusMemo.trim() && focusedTaskId) {
       try {
-        await fetch("http://localhost:8000/memos/", {
-          method: "POST",
+        // 階層を辿って根のタスクを見つける
+        const findRootTask = (taskId: number, visited = new Set<number>()): number => {
+          if (visited.has(taskId)) {
+            return taskId;
+          }
+          visited.add(taskId);
+
+          const task = tasks.find((t) => t.id === taskId);
+          if (task) {
+            if (!task.parent_id) {
+              return task.id;
+            }
+            return findRootTask(task.parent_id, visited);
+          }
+
+          const currentTask = dailyTasks.find((t) => t.id === taskId);
+          if (!currentTask || !currentTask.parent_id) {
+            return taskId;
+          }
+
+          return findRootTask(currentTask.parent_id, visited);
+        };
+
+        // ルートタスクIDを取得
+        const rootTaskId = findRootTask(focusedTaskId);
+
+        // 階層情報を取得
+        const focusedTask = dailyTasks.find((t) => t.id === focusedTaskId);
+        const hierarchyInfo = focusedTask?.hierarchy_path
+          ? `${focusedTask.hierarchy_path.join(" > ")} > ${focusedTask.title}`
+          : focusedTask?.title || "";
+
+        const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`, {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            content: focusMemo,
-            task_ids: [focusedTaskId],
+            description: `【フォーカスモードメモ】\n${hierarchyInfo}\n\n${focusMemo}`,
+            started_at: new Date().toISOString(),
+            task_id: rootTaskId,
           }),
         });
-        setFocusMemo("");
+
+        if (response.ok) {
+          setFocusMemo(""); // メモをクリア
+        }
       } catch (error) {
-        console.error("Failed to save memo:", error);
+        console.error('Error saving work log:', error);
       }
     }
   };
 
-  // フォーカスモードの切り替え
+  // ルートタ���クのワークログを取得する関数
+  const fetchRootTaskWorkLogs = async (taskId: number) => {
+    try {
+      const findRootTask = (taskId: number, visited = new Set<number>()): number => {
+        if (visited.has(taskId)) {
+          return taskId;
+        }
+        visited.add(taskId);
+
+        const task = tasks.find((t) => t.id === taskId);
+        if (task) {
+          if (!task.parent_id) {
+            return task.id;
+          }
+          return findRootTask(task.parent_id, visited);
+        }
+
+        const currentTask = dailyTasks.find((t) => t.id === taskId);
+        if (!currentTask || !currentTask.parent_id) {
+          return taskId;
+        }
+
+        return findRootTask(currentTask.parent_id, visited);
+      };
+
+      const rootTaskId = findRootTask(taskId);
+      const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`);
+      if (response.ok) {
+        const logs = await response.json();
+        setRootTaskWorkLogs(logs);
+      }
+    } catch (error) {
+      console.error('Error fetching work logs:', error);
+      setRootTaskWorkLogs([]);
+    }
+  };
+
+  // フォーカスモードの切り替え時にワークログを取得
   const handleFocusToggle = async (taskId: number) => {
     if (focusedTaskId === taskId) {
       await saveMemo();
       setFocusedTaskId(null);
       setTimeElapsed(0);
       setTomatoCount(0);
+      setRootTaskWorkLogs([]);
     } else {
       setFocusedTaskId(taskId);
       setTimeElapsed(0);
@@ -712,6 +742,7 @@ export const DailyTaskScheduler = forwardRef<
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      await fetchRootTaskWorkLogs(taskId);
     }
   };
 
@@ -765,7 +796,10 @@ export const DailyTaskScheduler = forwardRef<
         setTimeElapsed(0);
         setTomatoCount(0);
 
-        setFocusedTaskId(dailyTasks[newIndex].id);
+        const newTaskId = dailyTasks[newIndex].id;
+        setFocusedTaskId(newTaskId);
+        // 新しいタスクの作業ログを取得
+        await fetchRootTaskWorkLogs(newTaskId);
       }
     };
 
@@ -798,7 +832,7 @@ export const DailyTaskScheduler = forwardRef<
     const task = dailyTasks.find((t) => t.id === taskId);
     if (!task) return [];
 
-    // ローカルストレージから階層情報を取得
+    // ローカストレージから階層情報を取得
     const storageKey = `daily_tasks_${selectedDate}`;
     const storedTasks = localStorage.getItem(storageKey);
     if (storedTasks) {
@@ -1001,6 +1035,41 @@ export const DailyTaskScheduler = forwardRef<
     );
   };
 
+  const MemoizedSortableTaskItem = React.memo(SortableTaskItem);
+
+  // タブ切り替え時のデータ保持
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && focusedTaskId !== null) {
+        // フォーカスモードのメモ入力欄のカーソル位置を保存
+        if (memoRef.current) {
+          const position = memoRef.current.selectionStart;
+          setCursorPosition(position);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [focusedTaskId]);
+
+  // カーソル位置の復元
+  useEffect(() => {
+    if (focusedTaskId !== null && memoRef.current && cursorPosition !== null) {
+      requestAnimationFrame(() => {
+        if (memoRef.current) {
+          memoRef.current.focus();
+          memoRef.current.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      });
+    }
+  }, [focusedTaskId, cursorPosition]);
+
   return (
     <div className="bg-white p-4">
       {focusedTaskId && (
@@ -1143,10 +1212,95 @@ export const DailyTaskScheduler = forwardRef<
                     ref={memoRef}
                     value={focusMemo}
                     onChange={(e) => setFocusMemo(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                        e.preventDefault();
+                        if (focusMemo.trim()) {
+                          try {
+                            // 階層を辿って根のタスクを見つける
+                            const findRootTask = (taskId: number, visited = new Set<number>()): number => {
+                              if (visited.has(taskId)) {
+                                return taskId;
+                              }
+                              visited.add(taskId);
+
+                              const task = tasks.find((t) => t.id === taskId);
+                              if (task) {
+                                if (!task.parent_id) {
+                                  return task.id;
+                                }
+                                return findRootTask(task.parent_id, visited);
+                              }
+
+                              const currentTask = dailyTasks.find((t) => t.id === taskId);
+                              if (!currentTask || !currentTask.parent_id) {
+                                return taskId;
+                              }
+
+                              return findRootTask(currentTask.parent_id, visited);
+                            };
+
+                            // ルートタスクIDを取得
+                            const rootTaskId = findRootTask(focusedTaskId);
+
+                            // 階層情報を取得
+                            const focusedTask = dailyTasks.find((t) => t.id === focusedTaskId);
+                            const hierarchyInfo = focusedTask?.hierarchy_path
+                              ? `${focusedTask.hierarchy_path.join(" > ")} > ${focusedTask.title}`
+                              : focusedTask?.title || "";
+
+                            const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                description: `【メモ】\n${hierarchyInfo}\n\n${focusMemo}`,
+                                started_at: new Date().toISOString(),
+                                task_id: rootTaskId,
+                              }),
+                            });
+
+                            if (response.ok) {
+                              setFocusMemo(""); // メモをクリア
+                              // メモ保存後にワークログを再取得
+                              await fetchRootTaskWorkLogs(focusedTaskId);
+                            }
+                          } catch (error) {
+                            console.error('Error saving work log:', error);
+                          }
+                        }
+                      }
+                    }}
                     className="w-full resize-none border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base"
-                    placeholder="メモを入力..."
-                    style={{ height: "calc(100vh - 450px)" }}
+                    placeholder="メモを入力... (Ctrl+Enter で保存)"
+                    style={{ height: "calc(50vh - 300px)" }}
                   />
+                </div>
+              </div>
+              {/* ワークログ表示エリア */}
+              <div className="mt-4 bg-white rounded-lg shadow-2xl overflow-hidden">
+                <div className="p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">作業ログ</h3>
+                  <div className="space-y-4 max-h-[calc(50vh-300px)] overflow-y-auto">
+                    {rootTaskWorkLogs.sort((a, b) => 
+                      new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+                    ).map((log) => (
+                      <div key={log.id} className="border-b border-gray-200 pb-4">
+                        <div className="text-sm text-gray-500 mb-2">
+                          {format(new Date(log.started_at), "yyyy/MM/dd HH:mm", { locale: ja })}
+                        </div>
+                        <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                          {log.description}
+                        </div>
+                      </div>
+                    ))}
+                    {rootTaskWorkLogs.length === 0 && (
+                      <div className="text-center text-gray-500">
+                        作業ログはありません
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1156,7 +1310,7 @@ export const DailyTaskScheduler = forwardRef<
 
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-normal text-gray-700">本日のスク</h3>
+          <h3 className="text-lg font-normal text-gray-700">本日のタスク</h3>
           <div className="text-sm text-gray-500 mt-1">
             合計: {totalHours}時間{remainingMinutes}分
           </div>
@@ -1169,7 +1323,7 @@ export const DailyTaskScheduler = forwardRef<
               )
             }
             className="p-1 rounded hover:bg-gray-100 text-gray-600"
-            title="前日"
+            title="昨日"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
@@ -1248,7 +1402,7 @@ export const DailyTaskScheduler = forwardRef<
             strategy={verticalListSortingStrategy}
           >
             {dailyTasks.map((task, index) => (
-              <SortableTaskItem
+              <MemoizedSortableTaskItem
                 key={task.id}
                 task={task}
                 index={index}
@@ -1269,7 +1423,7 @@ export const DailyTaskScheduler = forwardRef<
               : `💪 あと${
                   dailyTasks.length -
                   dailyTasks.filter((task) => task.is_completed).length
-                }個のタスク目標達成！`}
+                }個のタスク目標！`}
           </p>
         </div>
       )}

@@ -253,7 +253,7 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
         // 第一階層のタスクをソート
         const sortedMainTasks = await sortMainTasks(mainTasks);
 
-        // すべてのタ��クを組み合わせてツリー構造に整理（重複を防ぐ）
+        // すべてのタスクを組み合わせてツリー構造に整理（重複を防ぐ）
         const allTasks = Array.from(
           new Map(
             [...sortedMainTasks, ...data].map((task) => [task.id, task])
@@ -444,39 +444,7 @@ export const useHierarchicalTasks = (tasks: Task[]) => {
     fetchTasks();
   }, []); // 初回マウント時のみ実行
 
-  // タブの可視性変更時にデータを再取得
-  // useEffect(() => {
-  //   let timeoutId: NodeJS.Timeout;
-  //   let lastFetchTime = 0;
-  //   const FETCH_COOLDOWN = 2000; // 2秒のクールダウン
-
-  //   const handleVisibilityChange = () => {
-  //     if (!document.hidden) {
-  //       const now = Date.now();
-  //       if (now - lastFetchTime > FETCH_COOLDOWN) {
-  //         timeoutId = setTimeout(async () => {
-  //           await fetchTasks(true); // サイレントモードでフェッ
-  //           lastFetchTime = Date.now();
-  //         }, 500);
-  //       }
-  //     }
-
-  //     console.log('.tsからのfetchtasks実行')
-  //   };
-
-  //   document.addEventListener('visibilitychange', handleVisibilityChange);
-  //   window.addEventListener('focus', handleVisibilityChange);
-
-  //   return () => {
-  //     document.removeEventListener('visibilitychange', handleVisibilityChange);
-  //     window.removeEventListener('focus', handleVisibilityChange);
-  //     if (timeoutId) {
-  //       clearTimeout(timeoutId);
-  //     }
-  //   };
-  // }, [fetchTasks]);
-
-  // ドラッグ＆ドロップ時の���序更新
+  // ドラッグ＆ドロップ時の順序更新
   const handleTaskMove = useCallback(
     async (taskId: number, targetIndex: number, newPosition?: number) => {
       try {
