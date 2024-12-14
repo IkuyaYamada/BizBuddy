@@ -50,7 +50,7 @@ interface DailyTask extends Task {
   parent_id?: number;
 }
 
-// ローカルストレージキーを生成
+// ローカルストレージ���ーを生成
 const getStorageKey = (date: string) => `daily_tasks_${date}`;
 
 export interface DailyTaskSchedulerRef {
@@ -127,7 +127,7 @@ const CompletionModal: React.FC<CompletionModalProps> = ({
                 <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      感想・振り返り
+                      感想・振����り
                     </label>
                     <textarea
                       value={description}
@@ -600,7 +600,7 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // フォーカスが解除されたらタイマーをリセット
+  // フォーカ���が���除されたらタイマーをリセット
   useEffect(() => {
     if (!focusedTaskId) {
       if (timerRef.current) {
@@ -688,7 +688,7 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // ルートタ���クのワークログを取得する関数
+  // ルートタスクのワークログを取得する関数
   const fetchRootTaskWorkLogs = async (taskId: number) => {
     try {
       const findRootTask = (taskId: number, visited = new Set<number>()): number => {
@@ -770,11 +770,10 @@ export const DailyTaskScheduler = forwardRef<
         setTimeElapsed(0);
         setTomatoCount(0);
         await saveMemo();
-      } else if (
-        e.ctrlKey &&
-        (e.key === "ArrowLeft" || e.key === "ArrowRight")
-      ) {
+      } else if (e.ctrlKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        // 必ずpreventDefaultを先に呼び出す
         e.preventDefault();
+        
         const currentIndex = dailyTasks.findIndex(
           (task) => task.id === focusedTaskId
         );
