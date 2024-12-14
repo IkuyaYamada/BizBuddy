@@ -263,14 +263,6 @@ export default function MemoList({ tasks, onUpdate }: MemoListProps) {
             placeholder="メモを入力..."
           />
         </div>
-        {/*
-        <button
-          type="submit"
-          className="w-full px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        >
-          モを追加
-        </button>
-        */}
       </form>
 
       <div className="space-y-4">

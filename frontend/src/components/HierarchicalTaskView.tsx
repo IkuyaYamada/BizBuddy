@@ -4,13 +4,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { Task } from "@/types/task";
 import { HierarchicalTask } from "@/types/hierarchicalTask";
 import { PlusIcon } from "@heroicons/react/24/outline";
-import * as api from "@/lib/api";
 import { useHierarchicalTasks } from "@/lib/hooks/useHierarchicalTasks";
 import { HierarchicalTaskItem } from "./HierarchicalTaskItem";
 import {
   DailyTaskScheduler,
   DailyTaskSchedulerRef,
-} from "./DailyTaskScheduler";
+} from "@/components/DailyTaskScheduler";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 
 interface HierarchicalTaskViewProps {
@@ -22,23 +21,6 @@ interface HierarchicalTaskViewProps {
 const COLLAPSED_TASKS_KEY = "hierarchical_tasks_collapsed_state";
 const PANEL_SIZES_KEY = "hierarchical_task_panel_sizes";
 const LAST_EDIT_STATE_KEY = "hierarchical_tasks_last_edit_state";
-
-// サブタスクを含むすべての子タスクのIDを取得する関数を追加
-const getAllChildTaskIds = (
-  taskId: number,
-  tasks: HierarchicalTask[]
-): number[] => {
-  const childIds: number[] = [];
-  const collectIds = (id: number) => {
-    const children = tasks.filter((t) => t.parent_id === id);
-    children.forEach((child) => {
-      childIds.push(child.id);
-      collectIds(child.id);
-    });
-  };
-  collectIds(taskId);
-  return childIds;
-};
 
 export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
   tasks,
@@ -72,17 +54,17 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
       return new Set<number>();
     }
   });
-  const [activeId, setActiveId] = useState<number | null>(null);
-  const [overId, setOverId] = useState<number | null>(null);
 
-  // パネルサイズの状態を追加
+  // パネルサイズの状態を追加（初期値を50:50に設定）
+  const DEFAULT_PANEL_SIZES = [50, 50];
+
   const [panelSizes, setPanelSizes] = useState<number[]>(() => {
     try {
       const savedSizes = localStorage.getItem(PANEL_SIZES_KEY);
-      return savedSizes ? JSON.parse(savedSizes) : [70, 30];
+      return savedSizes ? JSON.parse(savedSizes) : DEFAULT_PANEL_SIZES;
     } catch (error) {
       console.error("Failed to load panel sizes:", error);
-      return [70, 30];
+      return DEFAULT_PANEL_SIZES;
     }
   });
 
@@ -251,7 +233,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
 
       const newTask = await addTask(taskId, (parentTask.level || 0) + 1);
 
-      // 親タスクの最後の子タスクの後に新しいタスクを配置
+      // 親タスクの��後の子タスクの後に新しいタスクを配置
       const childTasks = hierarchicalTasks.filter(
         (t) => t.parent_id === taskId
       );
@@ -289,7 +271,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
 
   const handleDeleteTask = async (taskId: number) => {
     try {
-      // 削除前に一つ上の��スクを特定
+      // 削除前に一つ上のタスクを特定
       const currentTaskIndex = hierarchicalTasks.findIndex(
         (t) => t.id === taskId
       );
@@ -372,7 +354,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
     let collapsedParentIds = new Set<number>();
 
     tasks.forEach((task) => {
-      // 親タスクが折りたたまれている場合はスキップ
+      // 親���スクが折りたたまれている場合はスキップ
       if (isParentCollapsed) {
         if (task.level <= currentLevel) {
           isParentCollapsed = false;
@@ -406,7 +388,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
     return result;
   };
 
-  // パネルサイズが変更されたときの処理を追加
+  // パネルサイズが変更されたときの処理を修正
   const handlePanelResize = (sizes: number[]) => {
     setPanelSizes(sizes);
     try {
@@ -495,7 +477,7 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
     }
   };
 
-  // handleMoveTask関数を追加
+  // handleMoveTaskを追加
   const handleMoveTask = async (
     taskId: number,
     newParentId: number | undefined,
@@ -530,6 +512,25 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
     });
   };
 
+  // 階層型タスクの表示/非表示の状態を管理
+  const [showHierarchicalTasks, setShowHierarchicalTasks] = useState<boolean>(() => {
+    try {
+      const savedState = localStorage.getItem("show_hierarchical_tasks");
+      return savedState ? JSON.parse(savedState) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // 表示/非表示の状態が変更されたら保存
+  useEffect(() => {
+    try {
+      localStorage.setItem("show_hierarchical_tasks", JSON.stringify(showHierarchicalTasks));
+    } catch (error) {
+      console.error("Failed to save hierarchical tasks visibility state:", error);
+    }
+  }, [showHierarchicalTasks]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -539,82 +540,106 @@ export const HierarchicalTaskView: React.FC<HierarchicalTaskViewProps> = ({
   }
 
   return (
-    <div className="w-full">
-      <PanelGroup direction="horizontal" onLayout={handlePanelResize}>
-        <Panel defaultSize={panelSizes[0]} minSize={30}>
-          <div className="bg-white">
-            <div className="mb-4 flex items-center border-b border-gray-200 pb-3">
-              <button
-                onClick={() => handleAddTask()}
-                className="mr-4 inline-flex items-center px-3 py-1.5 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150"
-              >
-                <PlusIcon className="h-4 w-4 mr-1" />
-                タスクを追加
-              </button>
-              <h2 className="text-lg font-normal text-gray-700">
-                階層型タスク
-              </h2>
-            </div>
-
-            <div className="space-y-0">
-              {getVisibleTasks(hierarchicalTasks).map((task) => (
-                <HierarchicalTaskItem
-                  key={task.id}
-                  task={task}
-                  allTasks={hierarchicalTasks}
-                  onToggleExpand={() => handleToggleExpand(task.id)}
-                  onToggleComplete={(taskId) => handleToggleComplete(taskId)}
-                  onEditStart={(task) => handleEditStart(task)}
-                  onEditSave={handleEditSave}
-                  onAddSubTask={(taskId) => handleAddSubTask(taskId)}
-                  onDeleteTask={handleDeleteTask}
-                  onAddToDaily={handleAddToDaily}
-                  onAddSiblingTask={handleAddSiblingTask}
-                  onIncreaseLevel={handleIncreaseLevel}
-                  onDecreaseLevel={handleDecreaseLevel}
-                  isExpanded={expandedTasks.has(task.id)}
-                  expandedTasks={expandedTasks}
-                  isEditing={editingTaskId === task.id}
-                  editingContent={editingContent}
-                  onEditContentChange={setEditingContent}
-                  isInDailyTasks={isTaskInDaily(task.id)}
-                  onFocusToggle={() => {}}
-                />
-              ))}
-            </div>
-
-            {/* デバッグ情報 */}
-            <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">
-                デバッグ情報: APIから取得した全タスク
-              </h3>
-              <div className="space-y-1 text-xs text-gray-600">
-                {hierarchicalTasks.map((task) => (
-                  <div key={task.id} className="flex items-center gap-2">
-                    <span className="font-mono">ID: {task.id}</span>
-                    <span>|</span>
-                    <span>Title: {task.title}</span>
-                    <span>|</span>
-                    <span>Level: {task.level}</span>
-                    <span>|</span>
-                    <span>Parent: {task.parent_id || "none"}</span>
-                    <span>|</span>
-                    <span>Position: {task.position}</span>
+    <div className="w-full h-screen">
+      <PanelGroup 
+        direction="horizontal" 
+        onLayout={handlePanelResize}
+      >
+        {showHierarchicalTasks && (
+          <>
+            <Panel 
+              defaultSize={DEFAULT_PANEL_SIZES[0]}
+              minSize={20}
+            >
+              <div className="bg-white h-full overflow-auto">
+                <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3 sticky top-0 bg-white z-10 px-4 pt-4">
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-lg font-normal text-gray-700">
+                      階層型タスク
+                    </h2>
                   </div>
-                ))}
+                  <button
+                    onClick={() => {
+                      // 現在のパネルサイズを保存してから非表示に
+                      localStorage.setItem(PANEL_SIZES_KEY, JSON.stringify(panelSizes));
+                      setShowHierarchicalTasks(false);
+                    }}
+                    className="inline-flex items-center px-3 py-1.5 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                    階層を隠す
+                  </button>
+                </div>
+
+                <div className="space-y-0 px-4">
+                  {getVisibleTasks(hierarchicalTasks).map((task) => (
+                    <HierarchicalTaskItem
+                      key={task.id}
+                      task={task}
+                      allTasks={hierarchicalTasks}
+                      onToggleExpand={() => handleToggleExpand(task.id)}
+                      onToggleComplete={(taskId) => handleToggleComplete(taskId)}
+                      onEditStart={(task) => handleEditStart(task)}
+                      onEditSave={handleEditSave}
+                      onAddSubTask={(taskId) => handleAddSubTask(taskId)}
+                      onDeleteTask={handleDeleteTask}
+                      onAddToDaily={handleAddToDaily}
+                      onAddSiblingTask={handleAddSiblingTask}
+                      onIncreaseLevel={handleIncreaseLevel}
+                      onDecreaseLevel={handleDecreaseLevel}
+                      isExpanded={expandedTasks.has(task.id)}
+                      expandedTasks={expandedTasks}
+                      isEditing={editingTaskId === task.id}
+                      editingContent={editingContent}
+                      onEditContentChange={setEditingContent}
+                      isInDailyTasks={isTaskInDaily(task.id)}
+                      onFocusToggle={() => {}}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            </Panel>
+
+            <PanelResizeHandle className="w-2 hover:bg-gray-200 transition-colors duration-200" />
+          </>
+        )}
+
+        <Panel 
+          defaultSize={showHierarchicalTasks ? DEFAULT_PANEL_SIZES[1] : 100}
+          minSize={30}
+        >
+          <div className="h-full overflow-auto">
+            {!showHierarchicalTasks && (
+              <button
+                onClick={() => {
+                  setShowHierarchicalTasks(true);
+                  // 保存されていたパネルサイズを復元
+                  const savedSizes = localStorage.getItem(PANEL_SIZES_KEY);
+                  if (savedSizes) {
+                    setPanelSizes(JSON.parse(savedSizes));
+                  }
+                  fetchTasks();
+                }}
+                className="absolute top-2 left-2 inline-flex items-center px-3 py-1.5 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                階層を表示
+              </button>
+            )}
+            <DailyTaskScheduler
+              ref={schedulerRef}
+              tasks={hierarchicalTasks.map(convertToTask)}
+              onUpdate={async () => {
+                await fetchTasks();
+                onUpdate();
+              }}
+            />
           </div>
-        </Panel>
-
-        <PanelResizeHandle className="w-2 hover:bg-gray-200 transition-colors duration-200" />
-
-        <Panel defaultSize={panelSizes[1]} minSize={20}>
-          <DailyTaskScheduler
-            ref={schedulerRef}
-            tasks={hierarchicalTasks.map(convertToTask)}
-            onUpdate={onUpdate}
-          />
         </Panel>
       </PanelGroup>
     </div>

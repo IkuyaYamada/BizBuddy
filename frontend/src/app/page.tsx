@@ -40,37 +40,6 @@ const loadPanelLayout = (): number[] => {
   return [50, 50]; // デォルト値
 };
 
-function formatRemainingTime(deadline: string): string {
-  const now = new Date();
-  const deadlineDate = new Date(deadline);
-
-  if (deadlineDate < now) {
-    return "期限切れ";
-  }
-
-  const days = differenceInDays(deadlineDate, now);
-  const hours = differenceInHours(deadlineDate, now) % 24;
-  const minutes = differenceInMinutes(deadlineDate, now) % 60;
-
-  const parts = [];
-  if (days > 0) parts.push(`${days}日`);
-  if (hours > 0) parts.push(`${hours}時間`);
-  if (minutes > 0) parts.push(`${minutes}分`);
-
-  return parts.length > 0 ? parts.join(" ") : "1分未満";
-}
-
-// タブの定義
-const tabItems = [
-  { name: "タスク", id: "tasks" },
-  { name: "メモ", id: "notes" },
-  { name: "アクションプラン", id: "action-plan" },
-  { name: "マイリーログ", id: "daily-log" },
-  { name: "階層型タスク", id: "hierarchical-tasks" },
-  { name: "マインドマップ", id: "mindmap" },
-  { name: "プロトタイプ", id: "prototype" },
-];
-
 // ユーザリティ関数
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
@@ -130,9 +99,7 @@ export default function Home() {
   // キーボードショートカットの処理を追加
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac =
-        typeof window !== "undefined" &&
-        navigator.platform.toLowerCase().includes("mac");
+      const isMac = navigator.platform.toLowerCase().includes('mac');
 
       // タスク選択のショートカット (Ctrl + 1-9)
       if (e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
@@ -162,31 +129,45 @@ export default function Home() {
         } else if (e.key === "m") {
           e.preventDefault();
           setSelectedTab(1); // メモタブのインデックス
-        } else if (e.key === "o") {
-          e.preventDefault();
-          setSelectedTab(4); // 階層型タスクタブのインデックス
-        } else if (e.key.toLowerCase() === "j") {
-          e.preventDefault();
-          setSelectedTab(0); // タスクタブのインデックス
         }
       }
 
-      // 階層型タスクタブへの移動 (Ctrl + Alt + O)
-      if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === "o") {
-        e.preventDefault();
-        setSelectedTab(4); // 階層型タスクタブのインデックス
+      // タスク一覧タブへの移動
+      if (isMac) {
+        if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === "t") {
+          e.preventDefault();
+          setSelectedTab(0);
+        }
+      } else {
+        if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "t") {
+          e.preventDefault();
+          setSelectedTab(0);
+        }
+      }
+
+      // 階層型タスクタブへの移動
+      if (isMac) {
+        if (e.ctrlKey && !e.altKey && e.key.toLowerCase() === "h") {
+          e.preventDefault();
+          setSelectedTab(4);
+        }
+      } else {
+        if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "h") {
+          e.preventDefault();
+          setSelectedTab(4);
+        }
       }
 
       // アクションプランタブへの移動 (Windows: Ctrl + Alt + K, Mac: Ctrl + K)
       if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setSelectedTab(2); // アクションプランタブのインデックス
+        setSelectedTab(2);
       }
 
       // デイリーログタブへの移動 (Windows: Ctrl + Alt + L, Mac: Ctrl + L)
       if (!isMac && e.ctrlKey && e.altKey && e.key.toLowerCase() === "l") {
         e.preventDefault();
-        setSelectedTab(3); // デイリーログタブのインデックス
+        setSelectedTab(3);
       }
     };
 
@@ -384,6 +365,7 @@ export default function Home() {
                       { id: "action-plan", name: "アクションプラン" },
                       { id: "daily-log", name: "デイリーログ" },
                       { id: "hierarchical-tasks", name: "階層型タスク" },
+                      { id: "daily-tasks", name: "本日のタスク" },
                       { id: "mindmap", name: "マインドマップ" },
                       { id: "prototype", name: "プロトタイプ" },
                     ].map((tab) => (
@@ -536,14 +518,6 @@ export default function Home() {
                                           maxHeight: "20rem",
                                         }}
                                       />
-                                      <div className="flex justify-end">
-                                        <button
-                                          type="submit"
-                                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                        >
-                                          録
-                                        </button>
-                                      </div>
                                     </form>
                                   </div>
                                   {tasks
@@ -719,6 +693,16 @@ export default function Home() {
                       <HierarchicalTaskView
                         tasks={tasks}
                         onUpdate={fetchTasks}
+                      />
+                    </div>
+                  </Tab.Panel>
+                  <Tab.Panel>
+                    <div className="py-8">
+                      <DailyTaskScheduler
+                        tasks={tasks}
+                        onUpdate={async () => {
+                          await fetchTasks();
+                        }}
                       />
                     </div>
                   </Tab.Panel>

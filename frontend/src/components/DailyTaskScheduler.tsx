@@ -50,7 +50,7 @@ interface DailyTask extends Task {
   parent_id?: number;
 }
 
-// ローカルストレージ��成
+// ローカルストレージ
 const getStorageKey = (date: string) => `daily_tasks_${date}`;
 
 export interface DailyTaskSchedulerRef {
@@ -62,7 +62,7 @@ export interface DailyTaskSchedulerRef {
 interface CompletionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { description: string; outcome: string }) => void;
+  onSubmit: (data: { description: string }) => void;
 }
 
 // 完了モーダルコンポーネント
@@ -72,16 +72,19 @@ const CompletionModal: React.FC<CompletionModalProps> = ({
   onSubmit,
 }) => {
   const [description, setDescription] = useState("");
-  const [outcome, setOutcome] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!description.trim()) {
+      setError("完了報告を入力してください");
+      return;
+    }
+    setError("");
     onSubmit({
       description: description.trim(),
-      outcome: outcome.trim(),
     });
     setDescription("");
-    setOutcome("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -127,26 +130,26 @@ const CompletionModal: React.FC<CompletionModalProps> = ({
                 <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      感想返り
+                      完了報告
                     </label>
+                    {error && (
+                      <div className="text-sm text-red-500 mb-2">
+                        {error}
+                      </div>
+                    )}
                     <textarea
                       value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      rows={3}
-                      placeholder="任意"
-                    />
-                  </div>
-                  <div className="mb-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      成果物・結果
-                    </label>
-                    <textarea
-                      value={outcome}
-                      onChange={(e) => setOutcome(e.target.value)}
-                      className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      rows={3}
-                      placeholder="任意"
+                      onChange={(e) => {
+                        setDescription(e.target.value);
+                        if (e.target.value.trim()) {
+                          setError("");
+                        }
+                      }}
+                      className={`w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
+                        error ? "border-red-300" : "border-gray-300"
+                      }`}
+                      rows={5}
+                      placeholder="感想・振り返り、成果物・結果など"
                     />
                   </div>
                   <div className="mt-6 flex justify-end gap-3">
@@ -264,6 +267,29 @@ export const DailyTaskScheduler = forwardRef<
   const [editingContent, setEditingContent] = useState("");
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
   const [memoHeight, setMemoHeight] = useState(70); // 初期値70%
+
+  // 階層を辿って根のタスクを見つける共通関数
+  const findRootTask = (taskId: number, visited = new Set<number>()): number => {
+    if (visited.has(taskId)) {
+      return taskId;
+    }
+    visited.add(taskId);
+
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      if (!task.parent_id) {
+        return task.id;
+      }
+      return findRootTask(task.parent_id, visited);
+    }
+
+    const currentTask = dailyTasks.find((t) => t.id === taskId);
+    if (!currentTask || !currentTask.parent_id) {
+      return taskId;
+    }
+
+    return findRootTask(currentTask.parent_id, visited);
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -394,7 +420,7 @@ export const DailyTaskScheduler = forwardRef<
   };
 
   // タスクのステータスを更新する関数
-  const updateTaskStatus = async (taskId: number, isCompleted: boolean) => {
+  const updateTaskStatus = async (taskId: number, isCompleted: boolean, wantUpdate: boolean = true) => {
     const originalTask = tasks.find((t) => t.id === taskId);
     if (!originalTask) return;
 
@@ -412,60 +438,27 @@ export const DailyTaskScheduler = forwardRef<
     );
     setDailyTasks(updatedTasks);
     saveDailyTasks(updatedTasks);
-
-    onUpdate();
+    if (wantUpdate) {
+      onUpdate();
+    }
   };
 
   // 完了モーダルの送信処理を修正
-  const handleCompletionSubmit = async (data: {
-    description: string;
-    outcome: string;
-  }) => {
+  const handleCompletionSubmit = async (data: { description: string }) => {
     if (!completingTaskId) return;
+    const mainTaskId = findRootTask(completingTaskId);
 
     try {
-      // タスクを完了態に更新
-      await updateTaskStatus(completingTaskId, true);
+      await updateTaskStatus(completingTaskId, true, false);
 
-      // 感想が入力されている場合のみワークログを作成
       if (data.description.trim()) {
-        // 完了するタスクを取
         const completingTask = dailyTasks.find((t) => t.id === completingTaskId);
         if (!completingTask) {
           console.error("Completing task not found");
           return;
         }
 
-        // 階層を辿って根のタスクを見つける
-        const findRootTask = (
-          taskId: number,
-          visited = new Set<number>()
-        ): number => {
-          if (visited.has(taskId)) {
-            return taskId;
-          }
-          visited.add(taskId);
-
-          const task = tasks.find((t) => t.id === taskId);
-          if (task) {
-            if (!task.parent_id) {
-              return task.id;
-            }
-            return findRootTask(task.parent_id, visited);
-          }
-
-          const currentTask = dailyTasks.find((t) => t.id === taskId);
-          if (!currentTask || !currentTask.parent_id) {
-            return taskId;
-          }
-
-          return findRootTask(currentTask.parent_id, visited);
-        };
-
-        // 根のタスクIDを取得
-        const mainTaskId = findRootTask(completingTaskId);
-
-        // APIコールの前にタスクの存在確認
+        // APIコールの前にタスクの存在確
         const rootTask =
           tasks.find((t) => t.id === mainTaskId) ||
           dailyTasks.find((t) => t.id === mainTaskId);
@@ -495,7 +488,7 @@ export const DailyTaskScheduler = forwardRef<
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              description: `【完了報告】\n${hierarchyInfo}\n\n感想・振り返り:\n${data.description}\n\n成果物・結果:\n${data.outcome}`,
+              description: `【完了報告】\n${hierarchyInfo}\n\n${data.description}`,
               started_at: now.toISOString(),
               task_id: mainTaskId,
             }),
@@ -513,6 +506,7 @@ export const DailyTaskScheduler = forwardRef<
 
       setIsCompletionModalOpen(false);
       setCompletingTaskId(null);
+      await fetchRootTaskWorkLogs(mainTaskId);
     } catch (error) {
       console.error("Failed to complete task:", error);
     }
@@ -590,7 +584,7 @@ export const DailyTaskScheduler = forwardRef<
       timerRef.current = setInterval(() => {
         setTimeElapsed((prev) => {
           const newTime = prev + 1;
-          // 25分経過ごとにトマトカウントを増やす
+          // 25分経過ごとにトマトカウトを増やす
           if (newTime % TOMATO_TIME === 0) {
             setTomatoCount((current) => current + 1);
           }
@@ -601,7 +595,7 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // フォーカスが除されたらタイマーをリセット
+  // フ���ーカスが除されたらタイマをリセット
   useEffect(() => {
     if (!focusedTaskId) {
       if (timerRef.current) {
@@ -636,29 +630,6 @@ export const DailyTaskScheduler = forwardRef<
   const saveMemo = async () => {
     if (focusMemo.trim() && focusedTaskId) {
       try {
-        // 階層辿って根のタスクを見つける
-        const findRootTask = (taskId: number, visited = new Set<number>()): number => {
-          if (visited.has(taskId)) {
-            return taskId;
-          }
-          visited.add(taskId);
-
-          const task = tasks.find((t) => t.id === taskId);
-          if (task) {
-            if (!task.parent_id) {
-              return task.id;
-            }
-            return findRootTask(task.parent_id, visited);
-          }
-
-          const currentTask = dailyTasks.find((t) => t.id === taskId);
-          if (!currentTask || !currentTask.parent_id) {
-            return taskId;
-          }
-
-          return findRootTask(currentTask.parent_id, visited);
-        };
-
         // ルートタスクIDを取得
         const rootTaskId = findRootTask(focusedTaskId);
 
@@ -674,7 +645,7 @@ export const DailyTaskScheduler = forwardRef<
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            description: `【フォーカスモモ】\n${hierarchyInfo}\n\n${focusMemo}`,
+            description: `【フモ】\n${hierarchyInfo}\n\n${focusMemo}`,
             started_at: new Date().toISOString(),
             task_id: rootTaskId,
           }),
@@ -689,31 +660,9 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // ルートタスクの���ークログを取得る関数
+  // ルトタスクのワークログを取得る関数
   const fetchRootTaskWorkLogs = async (taskId: number) => {
     try {
-      const findRootTask = (taskId: number, visited = new Set<number>()): number => {
-        if (visited.has(taskId)) {
-          return taskId;
-        }
-        visited.add(taskId);
-
-        const task = tasks.find((t) => t.id === taskId);
-        if (task) {
-          if (!task.parent_id) {
-            return task.id;
-          }
-          return findRootTask(task.parent_id, visited);
-        }
-
-        const currentTask = dailyTasks.find((t) => t.id === taskId);
-        if (!currentTask || !currentTask.parent_id) {
-          return taskId;
-        }
-
-        return findRootTask(currentTask.parent_id, visited);
-      };
-
       const rootTaskId = findRootTask(taskId);
       const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`);
       if (response.ok) {
@@ -765,14 +714,18 @@ export const DailyTaskScheduler = forwardRef<
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!focusedTaskId) return;
 
+      // ESCキーの処理
       if (e.key === "Escape") {
         e.preventDefault();
         setFocusedTaskId(null);
         setTimeElapsed(0);
         setTomatoCount(0);
         await saveMemo();
-      } else if (e.ctrlKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-        // 必��preventDefaultを先に呼び出す
+        onUpdate(); // タスクの再取得をトリガー
+      } 
+      // タスク移動の処理
+      else if ((e.metaKey || e.ctrlKey) && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "j" || e.key === "k")) {
+        // 必ずpreventDefaultを先に呼び出す
         e.preventDefault();
         
         const currentIndex = dailyTasks.findIndex(
@@ -781,7 +734,7 @@ export const DailyTaskScheduler = forwardRef<
         if (currentIndex === -1) return;
 
         let newIndex;
-        if (e.key === "ArrowLeft") {
+        if (e.key === "ArrowLeft" || e.key === "k") {
           newIndex =
             currentIndex > 0 ? currentIndex - 1 : dailyTasks.length - 1;
         } else {
@@ -1083,7 +1036,7 @@ export const DailyTaskScheduler = forwardRef<
   };
 
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-8 min-h-screen">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 h-full overflow-auto">
       {/* フォーカスモード */}
       {focusedTaskId && (
         <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-md z-40 flex items-center justify-center transition-all duration-500">
@@ -1093,7 +1046,7 @@ export const DailyTaskScheduler = forwardRef<
               animation: 'fadeIn 0.5s ease-out forwards',
             }}
           >
-            <div className="w-full mb-6">
+            <div className="w-full mb-2">
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15">
                 <div className="p-8">
                   {/* 階層パス */}
@@ -1112,7 +1065,11 @@ export const DailyTaskScheduler = forwardRef<
                   </div>
 
                   {/* タスクタイトル */}
-                  <div className="text-3xl font-medium text-white mb-6 tracking-wide">
+                  <div className={`text-3xl font-medium mb-2 tracking-wide ${
+                    dailyTasks.find((t) => t.id === focusedTaskId)?.is_completed
+                      ? "text-green-300 line-through"
+                      : "text-white"
+                  }`}>
                     {dailyTasks.find((task) => task.id === focusedTaskId)?.title}
                   </div>
 
@@ -1200,10 +1157,16 @@ export const DailyTaskScheduler = forwardRef<
                   {/* プログレスバー */}
                   <div className="w-full bg-white/5 rounded-full h-1.5 mb-6 overflow-hidden">
                     <div
-                      className="bg-red-400 h-full rounded-full transition-all duration-1000"
+                      className={`h-full rounded-full transition-all duration-1000 ${
+                        dailyTasks.find((t) => t.id === focusedTaskId)?.is_completed
+                          ? "bg-green-400"
+                          : "bg-red-400"
+                      }`}
                       style={{
                         width: `${((timeElapsed % TOMATO_TIME) / TOMATO_TIME) * 100}%`,
-                        boxShadow: '0 0 10px rgba(248, 113, 113, 0.5)',
+                        boxShadow: dailyTasks.find((t) => t.id === focusedTaskId)?.is_completed
+                          ? '0 0 10px rgba(74, 222, 128, 0.5)'
+                          : '0 0 10px rgba(248, 113, 113, 0.5)',
                       }}
                     />
                   </div>
@@ -1212,8 +1175,8 @@ export const DailyTaskScheduler = forwardRef<
             </div>
 
             {/* メモエリアとリサイザー */}
-            <div className="flex-1 bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15">
-              <div className="p-8">
+            <div className="flex-1 bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15 mt-2">
+              <div className="p-8 pb-2">
                 <textarea
                   ref={memoRef}
                   value={focusMemo}
@@ -1221,8 +1184,69 @@ export const DailyTaskScheduler = forwardRef<
                   onKeyDown={async (e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                       // ... existing code ...
-                    }
-                  }}
+                        e.preventDefault();
+                        if (focusMemo.trim()) {
+                          try {
+                            // 階層を辿って根のタスクを見つける
+                            const findRootTask = (taskId: number, visited = new Set<number>()): number => {
+                              if (visited.has(taskId)) {
+                                return taskId;
+                              }
+                              visited.add(taskId);
+
+                              const task = tasks.find((t) => t.id === taskId);
+                              if (task) {
+                                if (!task.parent_id) {
+                                  return task.id;
+                                }
+                                return findRootTask(task.parent_id, visited);
+                              }
+
+                              const currentTask = dailyTasks.find((t) => t.id === taskId);
+                              if (!currentTask || !currentTask.parent_id) {
+                                return taskId;
+                              }
+
+                              return findRootTask(currentTask.parent_id, visited);
+                            };
+
+                            // ルートタスクIDを取得
+                            const rootTaskId = findRootTask(focusedTaskId);
+
+                            // 階層情報を取得
+                            const focusedTask = dailyTasks.find((t) => t.id === focusedTaskId);
+                            const hierarchyInfo = focusedTask?.hierarchy_path
+                              ? `${focusedTask.hierarchy_path.join(" > ")} > ${focusedTask.title}`
+                              : focusedTask?.title || "";
+
+                            // JSTのオフセットを考慮して日時を調整
+                            const jstOffset = 9 * 60;
+                            const now = new Date();
+                            now.setMinutes(now.getMinutes() + jstOffset);
+
+                            const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                description: `【メモ】\n${hierarchyInfo}\n\n${focusMemo}`,
+                                started_at: now.toISOString(),
+                                task_id: rootTaskId,
+                              }),
+                            });
+
+                            if (response.ok) {
+                              setFocusMemo(""); // メモをクリア
+                              // メモ保存後にワークログを再取得
+                              await fetchRootTaskWorkLogs(focusedTaskId);
+                            }
+                          } catch (error) {
+                            console.error('Error saving work log:', error);
+                          }
+                        }
+                      }
+                    }}
                   className="w-full resize-none bg-white/5 border-0 rounded-xl focus:ring-2 focus:ring-white/20 text-white placeholder-gray-400/60 text-lg"
                   placeholder="メモを入力... (Ctrl+Enter で保存)"
                   style={{ 
@@ -1235,17 +1259,35 @@ export const DailyTaskScheduler = forwardRef<
               {/* リサイザー */}
               <div
                 onMouseDown={(e) => {
-                  // ... existing code ...
+                  const startY = e.clientY;
+                  const startHeight = memoHeight;
+
+                  const handleMouseMove = (e: MouseEvent) => {
+                    const delta = e.clientY - startY;
+                    const newHeight = Math.max(20, Math.min(90, startHeight + (delta / window.innerHeight) * 100));
+                    setMemoHeight(newHeight);
+                  };
+
+                  const handleMouseUp = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                  };
+
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
                 }}
                 style={{
-                  ...resizeBarStyle,
+                  height: '8px',
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  cursor: 'row-resize',
+                  margin: '0',
+                  transition: 'background-color 0.2s',
                 }}
-                className="hover:bg-white/20 cursor-row-resize"
+                className="hover:bg-white/20"
               />
 
               {/* 作業ログ表示エリア */}
-              <div className="p-8">
+              <div className="p-8 pt-2">
                 <h3 className="text-lg font-medium text-white/90 mb-6">作業ログ</h3>
                 <div 
                   className="space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent" 
@@ -1276,13 +1318,13 @@ export const DailyTaskScheduler = forwardRef<
           {/* キーボードショートカットヘルプ */}
           <div className="fixed bottom-4 right-4 text-sm text-gray-400/60">
             <div>ESC: フォーカスモード終了</div>
-            <div>Ctrl + ←/→: タスク切り替え</div>
-            <div>Ctrl + Enter: メモ保存</div>
+            <div>{navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'} + ←/→ または j/k: タスク切り替え</div>
+            <div>{navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'} + Enter: メモ保存</div>
           </div>
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto px-8 pt-0 pb-4">
         {/* ヘッダー部分 */}
         <div className="mb-8 flex items-center justify-between">
           <div>
