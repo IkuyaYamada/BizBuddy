@@ -50,7 +50,7 @@ interface DailyTask extends Task {
   parent_id?: number;
 }
 
-// ローカルストレージ���ーを生成
+// ローカルストレージ��成
 const getStorageKey = (date: string) => `daily_tasks_${date}`;
 
 export interface DailyTaskSchedulerRef {
@@ -127,7 +127,7 @@ const CompletionModal: React.FC<CompletionModalProps> = ({
                 <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      感想・振����り
+                      感想返り
                     </label>
                     <textarea
                       value={description}
@@ -263,6 +263,7 @@ export const DailyTaskScheduler = forwardRef<
   const [rootTaskWorkLogs, setRootTaskWorkLogs] = useState<any[]>([]);
   const [editingContent, setEditingContent] = useState("");
   const [cursorPosition, setCursorPosition] = useState<number | null>(null);
+  const [memoHeight, setMemoHeight] = useState(70); // 初期値70%
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -428,7 +429,7 @@ export const DailyTaskScheduler = forwardRef<
 
       // 感想が入力されている場合のみワークログを作成
       if (data.description.trim()) {
-        // 完了するタスクを取得
+        // 完了するタスクを取
         const completingTask = dailyTasks.find((t) => t.id === completingTaskId);
         if (!completingTask) {
           console.error("Completing task not found");
@@ -600,7 +601,7 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // フォーカ���が���除されたらタイマーをリセット
+  // フォーカスが除されたらタイマーをリセット
   useEffect(() => {
     if (!focusedTaskId) {
       if (timerRef.current) {
@@ -635,7 +636,7 @@ export const DailyTaskScheduler = forwardRef<
   const saveMemo = async () => {
     if (focusMemo.trim() && focusedTaskId) {
       try {
-        // 階層を辿って根のタスクを見つける
+        // 階層辿って根のタスクを見つける
         const findRootTask = (taskId: number, visited = new Set<number>()): number => {
           if (visited.has(taskId)) {
             return taskId;
@@ -673,7 +674,7 @@ export const DailyTaskScheduler = forwardRef<
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            description: `【フォーカスモードメモ】\n${hierarchyInfo}\n\n${focusMemo}`,
+            description: `【フォーカスモモ】\n${hierarchyInfo}\n\n${focusMemo}`,
             started_at: new Date().toISOString(),
             task_id: rootTaskId,
           }),
@@ -688,7 +689,7 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // ルートタスクのワークログを取得する関数
+  // ルートタスクの���ークログを取得る関数
   const fetchRootTaskWorkLogs = async (taskId: number) => {
     try {
       const findRootTask = (taskId: number, visited = new Set<number>()): number => {
@@ -771,7 +772,7 @@ export const DailyTaskScheduler = forwardRef<
         setTomatoCount(0);
         await saveMemo();
       } else if (e.ctrlKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-        // 必ずpreventDefaultを先に呼び出す
+        // 必��preventDefaultを先に呼び出す
         e.preventDefault();
         
         const currentIndex = dailyTasks.findIndex(
@@ -874,17 +875,17 @@ export const DailyTaskScheduler = forwardRef<
       <div
         ref={setNodeRef}
         style={style}
-        className={`relative flex items-center gap-2 p-2 rounded group transition-all duration-300 ${
+        className={`relative flex items-center gap-3 p-4 rounded-xl transition-all duration-300 bg-white border shadow-sm ${
           task.is_completed
-            ? "bg-green-50 border border-green-200"
-            : "bg-gray-50 border border-gray-200"
+            ? "border-green-200 bg-green-50/50"
+            : "border-gray-200 hover:border-gray-300 hover:shadow-md"
         }`}
       >
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <div
             {...attributes}
             {...listeners}
-            className="cursor-move p-1 hover:bg-gray-200 rounded"
+            className="cursor-move p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -901,10 +902,10 @@ export const DailyTaskScheduler = forwardRef<
               />
             </svg>
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-1">
             <button
               onClick={() => handleMoveTask(task.id, "up")}
-              className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 text-gray-400 hover:text-gray-600"
               disabled={index === 0}
             >
               <svg
@@ -924,7 +925,7 @@ export const DailyTaskScheduler = forwardRef<
             </button>
             <button
               onClick={() => handleMoveTask(task.id, "down")}
-              className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 text-gray-400 hover:text-gray-600"
               disabled={index === dailyTasks.length - 1}
             >
               <svg
@@ -944,10 +945,10 @@ export const DailyTaskScheduler = forwardRef<
             </button>
           </div>
         </div>
-        <span className="text-sm text-gray-400 w-6">{index + 1}</span>
+        <span className="text-sm font-mono text-gray-400 w-6">{index + 1}</span>
         <div className="flex-1">
           {task.hierarchy_path && task.hierarchy_path.length > 0 && (
-            <div className="text-xs text-gray-400 mb-0.5">
+            <div className="text-xs text-gray-400 mb-1 font-mono">
               {task.hierarchy_path.join(" > ")}
             </div>
           )}
@@ -955,32 +956,32 @@ export const DailyTaskScheduler = forwardRef<
             className={`text-sm transition-all duration-300 ${
               task.is_completed
                 ? "line-through text-green-600"
-                : "text-gray-600"
+                : "text-gray-700"
             }`}
           >
             {task.title}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            value={task.estimated_minutes || 30}
-            onChange={(e) => onUpdateTime(task.id, parseInt(e.target.value))}
-            className="w-16 text-sm border-gray-200 rounded"
-            min="5"
-            step="5"
-          />
-          <span className="text-sm text-gray-400">分</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+            <input
+              type="number"
+              value={task.estimated_minutes || 30}
+              onChange={(e) => onUpdateTime(task.id, parseInt(e.target.value))}
+              className="w-16 text-sm bg-transparent border-0 focus:ring-0 text-gray-700"
+              min="5"
+              step="5"
+            />
+            <span className="text-sm text-gray-500">分</span>
+          </div>
           <button
             onClick={() => handleFocusToggle(task.id)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 ${
               isFocused
                 ? "bg-blue-100 text-blue-600 hover:bg-blue-200"
                 : "bg-gray-100 text-gray-400 hover:bg-gray-200"
             }`}
-            title={
-              isFocused ? "フォーカスモードを解除" : "フォーカスモードを開始"
-            }
+            title={isFocused ? "フォーカスモードを解除" : "フォーカスモードを開始"}
           >
             <svg
               className="w-5 h-5"
@@ -1002,13 +1003,13 @@ export const DailyTaskScheduler = forwardRef<
           </button>
           <button
             onClick={() => onRemove(task.id)}
-            className="text-gray-400 hover:text-gray-600 p-1"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 text-gray-400 hover:text-gray-600"
           >
-            <XMarkIcon className="h-4 w-4" />
+            <XMarkIcon className="h-5 w-5" />
           </button>
           <button
             onClick={() => onToggleComplete(task.id)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 ${
               task.is_completed
                 ? "bg-green-100 text-green-600 hover:bg-green-200"
                 : "bg-gray-100 text-gray-400 hover:bg-gray-200"
@@ -1069,15 +1070,34 @@ export const DailyTaskScheduler = forwardRef<
     }
   }, [focusedTaskId, cursorPosition]);
 
+  // リサイザーのスタイルを変更
+  const resizeBarStyle = {
+    height: '4px',  // 操作しやすいように少し太く
+    backgroundColor: '#e5e7eb',
+    cursor: 'row-resize',
+    margin: '0',
+    transition: 'background-color 0.2s',
+    ':hover': {
+      backgroundColor: '#d1d5db',
+    }
+  };
+
   return (
-    <div className="bg-white p-4">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-8 min-h-screen">
+      {/* フォーカスモード */}
       {focusedTaskId && (
-        <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-40 flex items-center justify-center">
-          <div className="w-full h-screen max-w-7xl mx-auto px-4 py-8 flex flex-col">
-            <div className="w-full">
-              <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
-                <div className="p-6">
-                  <div className="text-sm text-gray-500 mb-4">
+        <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-md z-40 flex items-center justify-center transition-all duration-500">
+          <div 
+            className="w-full h-screen max-w-5xl mx-auto px-4 py-8 flex flex-col opacity-0 animate-fade-in"
+            style={{
+              animation: 'fadeIn 0.5s ease-out forwards',
+            }}
+          >
+            <div className="w-full mb-6">
+              <div className="bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15">
+                <div className="p-8">
+                  {/* 階層パス */}
+                  <div className="text-sm text-gray-400/80 mb-4 font-mono">
                     {(() => {
                       const hierarchyPath = getTaskHierarchyPath(focusedTaskId);
                       return hierarchyPath.length > 0
@@ -1085,31 +1105,32 @@ export const DailyTaskScheduler = forwardRef<
                         : null;
                     })()}
                   </div>
-                  <div className="text-sm text-gray-400 mb-2">
-                    タスク{" "}
-                    {dailyTasks.findIndex((t) => t.id === focusedTaskId) + 1} /{" "}
-                    {dailyTasks.length}
+
+                  {/* タスク番号 */}
+                  <div className="text-sm text-gray-400/80 mb-2 font-mono tracking-wider">
+                    Task {dailyTasks.findIndex((t) => t.id === focusedTaskId) + 1} / {dailyTasks.length}
                   </div>
-                  <div className="text-2xl font-medium text-gray-800 mb-4">
-                    {
-                      dailyTasks.find((task) => task.id === focusedTaskId)
-                        ?.title
-                    }
+
+                  {/* タスクタイトル */}
+                  <div className="text-3xl font-medium text-white mb-6 tracking-wide">
+                    {dailyTasks.find((task) => task.id === focusedTaskId)?.title}
                   </div>
+
+                  {/* タイマーセクション */}
                   <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                       <button
                         onClick={toggleTimer}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 ${
+                        className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-500 ${
                           isTimerRunning
-                            ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                            : "bg-red-50 text-red-600 hover:bg-red-100"
+                            ? "bg-white/10 text-white hover:bg-white/20 scale-95"
+                            : "bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:scale-105"
                         }`}
                         title={isTimerRunning ? "一時停止" : "開始"}
                       >
                         {isTimerRunning ? (
                           <svg
-                            className="w-5 h-5"
+                            className="w-8 h-8"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -1122,56 +1143,42 @@ export const DailyTaskScheduler = forwardRef<
                             />
                           </svg>
                         ) : (
-                          <span className="text-2xl transform hover:scale-110 transition-transform">
-                            🍅🍎
+                          <span className="text-3xl transform transition-transform">
+                            🍅
                           </span>
                         )}
                       </button>
-                      <div className="text-2xl font-semibold text-gray-700">
+                      <div className="text-4xl font-bold text-white font-mono tracking-wider">
                         {formatTime(timeElapsed)}
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2 text-2xl">
                         {tomatoCount > 0 && "🍅".repeat(tomatoCount)}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    {/* タスク操作ボタン */}
+                    <div className="flex items-center gap-4">
                       <button
                         onClick={() => handleMoveTaskOnFocusedView("up")}
-                        className="text-gray-400 hover:text-gray-600 p-1"
-                        disabled={
-                          dailyTasks.findIndex(
-                            (t) => t.id === focusedTaskId
-                          ) === 0
-                        }
+                        className="text-gray-400/80 hover:text-white transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
+                        disabled={dailyTasks.findIndex((t) => t.id === focusedTaskId) === 0}
                       >
                         前のタスク
                       </button>
                       <button
                         onClick={() => handleMoveTaskOnFocusedView("down")}
-                        className="text-gray-400 hover:text-gray-600 p-1"
-                        disabled={
-                          dailyTasks.findIndex(
-                            (t) => t.id === focusedTaskId
-                          ) ===
-                          dailyTasks.length - 1
-                        }
+                        className="text-gray-400/80 hover:text-white transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
+                        disabled={dailyTasks.findIndex((t) => t.id === focusedTaskId) === dailyTasks.length - 1}
                       >
                         次のタスク
                       </button>
                       <button
                         onClick={() => onToggleComplete(focusedTaskId)}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
-                          dailyTasks.find((t) => t.id === focusedTaskId)
-                            ?.is_completed
-                            ? "bg-green-100 text-green-600 hover:bg-green-200"
-                            : "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 ${
+                          dailyTasks.find((t) => t.id === focusedTaskId)?.is_completed
+                            ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                            : "bg-white/10 text-gray-400 hover:bg-white/20"
                         }`}
-                        title={
-                          dailyTasks.find((t) => t.id === focusedTaskId)
-                            ?.is_completed
-                            ? "完了を取り消す"
-                            : "完了にする"
-                        }
                       >
                         <svg
                           className="w-6 h-6"
@@ -1189,13 +1196,14 @@ export const DailyTaskScheduler = forwardRef<
                       </button>
                     </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+
+                  {/* プログレスバー */}
+                  <div className="w-full bg-white/5 rounded-full h-1.5 mb-6 overflow-hidden">
                     <div
-                      className="bg-red-400 h-2 rounded-full transition-all duration-1000"
+                      className="bg-red-400 h-full rounded-full transition-all duration-1000"
                       style={{
-                        width: `${
-                          ((timeElapsed % TOMATO_TIME) / TOMATO_TIME) * 100
-                        }%`,
+                        width: `${((timeElapsed % TOMATO_TIME) / TOMATO_TIME) * 100}%`,
+                        boxShadow: '0 0 10px rgba(248, 113, 113, 0.5)',
                       }}
                     />
                   </div>
@@ -1203,245 +1211,217 @@ export const DailyTaskScheduler = forwardRef<
               </div>
             </div>
 
-            {/* メモエリア */}
-            <div className="mt-4 w-full">
-              <div className="bg-white rounded-lg shadow-2xl overflow-hidden">
-                <div className="p-6">
-                  <textarea
-                    ref={memoRef}
-                    value={focusMemo}
-                    onChange={(e) => setFocusMemo(e.target.value)}
-                    onKeyDown={async (e) => {
-                      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                        e.preventDefault();
-                        if (focusMemo.trim()) {
-                          try {
-                            // 階層を辿って根のタスクを見つける
-                            const findRootTask = (taskId: number, visited = new Set<number>()): number => {
-                              if (visited.has(taskId)) {
-                                return taskId;
-                              }
-                              visited.add(taskId);
-
-                              const task = tasks.find((t) => t.id === taskId);
-                              if (task) {
-                                if (!task.parent_id) {
-                                  return task.id;
-                                }
-                                return findRootTask(task.parent_id, visited);
-                              }
-
-                              const currentTask = dailyTasks.find((t) => t.id === taskId);
-                              if (!currentTask || !currentTask.parent_id) {
-                                return taskId;
-                              }
-
-                              return findRootTask(currentTask.parent_id, visited);
-                            };
-
-                            // ルートタスクIDを取得
-                            const rootTaskId = findRootTask(focusedTaskId);
-
-                            // 階層情報を取得
-                            const focusedTask = dailyTasks.find((t) => t.id === focusedTaskId);
-                            const hierarchyInfo = focusedTask?.hierarchy_path
-                              ? `${focusedTask.hierarchy_path.join(" > ")} > ${focusedTask.title}`
-                              : focusedTask?.title || "";
-
-                            const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`, {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
-                              body: JSON.stringify({
-                                description: `【メモ】\n${hierarchyInfo}\n\n${focusMemo}`,
-                                started_at: new Date().toISOString(),
-                                task_id: rootTaskId,
-                              }),
-                            });
-
-                            if (response.ok) {
-                              setFocusMemo(""); // メモをクリア
-                              // メモ保存後にワークログを再取得
-                              await fetchRootTaskWorkLogs(focusedTaskId);
-                            }
-                          } catch (error) {
-                            console.error('Error saving work log:', error);
-                          }
-                        }
-                      }
-                    }}
-                    className="w-full resize-none border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-base"
-                    placeholder="メモを入力... (Ctrl+Enter で保存)"
-                    style={{ height: "calc(50vh - 300px)" }}
-                  />
-                </div>
+            {/* メモエリアとリサイザー */}
+            <div className="flex-1 bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15">
+              <div className="p-8">
+                <textarea
+                  ref={memoRef}
+                  value={focusMemo}
+                  onChange={(e) => setFocusMemo(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                      // ... existing code ...
+                    }
+                  }}
+                  className="w-full resize-none bg-white/5 border-0 rounded-xl focus:ring-2 focus:ring-white/20 text-white placeholder-gray-400/60 text-lg"
+                  placeholder="メモを入力... (Ctrl+Enter で保存)"
+                  style={{ 
+                    height: `calc(${memoHeight}vh - 300px)`,
+                    caretColor: 'white',
+                  }}
+                />
               </div>
-              {/* ワークログ表示エリア */}
-              <div className="mt-4 bg-white rounded-lg shadow-2xl overflow-hidden">
-                <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">作業ログ</h3>
-                  <div className="space-y-4 max-h-[calc(50vh-300px)] overflow-y-auto">
-                    {rootTaskWorkLogs.sort((a, b) => 
-                      new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-                    ).map((log) => (
-                      <div key={log.id} className="border-b border-gray-200 pb-4">
-                        <div className="text-sm text-gray-500 mb-2">
-                          {format(new Date(log.started_at), "yyyy/MM/dd HH:mm", { locale: ja })}
-                        </div>
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {log.description}
-                        </div>
+
+              {/* リサイザー */}
+              <div
+                onMouseDown={(e) => {
+                  // ... existing code ...
+                }}
+                style={{
+                  ...resizeBarStyle,
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+                className="hover:bg-white/20 cursor-row-resize"
+              />
+
+              {/* 作業ログ表示エリア */}
+              <div className="p-8">
+                <h3 className="text-lg font-medium text-white/90 mb-6">作業ログ</h3>
+                <div 
+                  className="space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent" 
+                  style={{ maxHeight: `calc(${100 - memoHeight}vh - 100px)` }}
+                >
+                  {rootTaskWorkLogs.sort((a, b) => 
+                    new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+                  ).map((log) => (
+                    <div key={log.id} className="border-b border-white/10 pb-4">
+                      <div className="text-sm text-gray-400/80 mb-2 font-mono">
+                        {format(new Date(log.started_at), "yyyy/MM/dd HH:mm", { locale: ja })}
                       </div>
-                    ))}
-                    {rootTaskWorkLogs.length === 0 && (
-                      <div className="text-center text-gray-500">
-                        作業ログはありません
+                      <div className="text-base text-gray-300/90 whitespace-pre-wrap">
+                        {log.description}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ))}
+                  {rootTaskWorkLogs.length === 0 && (
+                    <div className="text-center text-gray-400/60">
+                      作業ログはありません
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-normal text-gray-700">本日のタスク</h3>
-          <div className="text-sm text-gray-500 mt-1">
-            合計: {totalHours}時間{remainingMinutes}分
+          {/* キーボードショートカットヘルプ */}
+          <div className="fixed bottom-4 right-4 text-sm text-gray-400/60">
+            <div>ESC: フォーカスモード終了</div>
+            <div>Ctrl + ←/→: タスク切り替え</div>
+            <div>Ctrl + Enter: メモ保存</div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() =>
-              setSelectedDate(
-                format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd")
-              )
-            }
-            className="p-1 rounded hover:bg-gray-100 text-gray-600"
-            title="昨日"
-          >
-            <ChevronLeftIcon className="w-5 h-5" />
-          </button>
+      )}
 
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="border-gray-200 rounded text-sm"
-          />
-
-          <button
-            onClick={() =>
-              setSelectedDate(
-                format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd")
-              )
-            }
-            className="p-1 rounded hover:bg-gray-100 text-gray-600"
-            title="翌日"
-          >
-            <ChevronRightIcon className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* クイック追加ボタン */}
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
-        {quickAddItems.map((item, index) => (
-          <button
-            key={index}
-            onClick={() => handleQuickAdd(item)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-gray-300 transition-colors duration-150 whitespace-nowrap"
-          >
-            {item.icon}
-            <span>{item.title}</span>
-            <span className="text-gray-400">({item.estimatedMinutes}分)</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-4">
-        <div className="h-2 bg-indigo-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 ease-out"
-            style={{
-              width: `${
-                dailyTasks.length > 0
-                  ? (dailyTasks.filter((task) => task.is_completed).length /
-                      dailyTasks.length) *
-                    100
-                  : 0
-              }%`,
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="mb-4 flex justify-between items-center">
-        <div className="text-right">
-          <div className="text-2xl font-bold text-indigo-600 mb-1">
-            {dailyTasks.filter((task) => task.is_completed).length} /{" "}
-            {dailyTasks.length}
+      <div className="max-w-5xl mx-auto">
+        {/* ヘッダー部分 */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-medium text-gray-800 mb-2">本日のタスク</h3>
+            <div className="text-base text-gray-500 flex items-center gap-2">
+              <span className="flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                合計: {totalHours}時間{remainingMinutes}分
+              </span>
+            </div>
           </div>
-          <div className="text-sm text-indigo-500">完了タスク</div>
-        </div>
-      </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
+              className="p-2 rounded-lg hover:bg-white hover:shadow-md transition-all duration-200 text-gray-600"
+              title="昨日"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
 
-      <div className="space-y-2">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={dailyTasks.map((t) => t.id)}
-            strategy={verticalListSortingStrategy}
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+            />
+
+            <button
+              onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
+              className="p-2 rounded-lg hover:bg-white hover:shadow-md transition-all duration-200 text-gray-600"
+              title="翌日"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* クイック追加ボタン */}
+        <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
+          {quickAddItems.map((item, index) => (
+            <button
+              key={index}
+              onClick={() => handleQuickAdd(item)}
+              className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-gray-300 transition-all duration-200 whitespace-nowrap group"
+            >
+              <span className="text-gray-400 group-hover:text-blue-500 transition-colors duration-200">
+                {item.icon}
+              </span>
+              <span>{item.title}</span>
+              <span className="text-gray-400">({item.estimatedMinutes}分)</span>
+            </button>
+          ))}
+        </div>
+
+        {/* プログレスバー */}
+        <div className="mb-6 bg-white p-6 rounded-2xl shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-4">
+              <div className="text-3xl font-bold text-blue-600">
+                {dailyTasks.filter((task) => task.is_completed).length}
+                <span className="text-gray-400 font-normal"> / {dailyTasks.length}</span>
+              </div>
+              <div className="text-sm font-medium text-gray-500">完了タスク</div>
+            </div>
+            {dailyTasks.length > 0 && (
+              <p className="text-gray-600 font-medium">
+                {dailyTasks.every((task) => task.is_completed)
+                  ? "🎉 素晴らしい！今日のタスクを全て完了しました！"
+                  : `💪 あと${
+                      dailyTasks.length -
+                      dailyTasks.filter((task) => task.is_completed).length
+                    }個のタスク目標！`}
+              </p>
+            )}
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 ease-out"
+              style={{
+                width: `${
+                  dailyTasks.length > 0
+                    ? (dailyTasks.filter((task) => task.is_completed).length /
+                        dailyTasks.length) *
+                      100
+                    : 0
+                }%`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* タスクリスト */}
+        <div className="space-y-3">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            {dailyTasks.map((task, index) => (
-              <MemoizedSortableTaskItem
-                key={task.id}
-                task={task}
-                index={index}
-                onRemove={handleRemoveTask}
-                onUpdateTime={updateEstimatedTime}
-                onToggleComplete={onToggleComplete}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+            <SortableContext
+              items={dailyTasks.map((t) => t.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {dailyTasks.map((task, index) => (
+                <MemoizedSortableTaskItem
+                  key={task.id}
+                  task={task}
+                  index={index}
+                  onRemove={handleRemoveTask}
+                  onUpdateTime={updateEstimatedTime}
+                  onToggleComplete={onToggleComplete}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+
+        {dailyTasks.length === 0 && (
+          <div className="text-center py-12 bg-white rounded-2xl shadow-sm">
+            <div className="mb-4 text-gray-400">
+              <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            <p className="text-lg font-medium text-gray-700 mb-2">今日のタスクを設定しよう！</p>
+            <p className="text-sm text-gray-500">階層型タスクから追加できます</p>
+          </div>
+        )}
+
+        <CompletionModal
+          isOpen={isCompletionModalOpen}
+          onClose={() => {
+            setIsCompletionModalOpen(false);
+            setCompletingTaskId(null);
+          }}
+          onSubmit={handleCompletionSubmit}
+        />
       </div>
-
-      {dailyTasks.length > 0 && (
-        <div className="mt-4 text-center">
-          <p className="text-indigo-600 font-medium">
-            {dailyTasks.every((task) => task.is_completed)
-              ? "🎉 素晴らしい！今日のタスクを全て完了しました！"
-              : `💪 あと${
-                  dailyTasks.length -
-                  dailyTasks.filter((task) => task.is_completed).length
-                }個のタスク目標！`}
-          </p>
-        </div>
-      )}
-
-      {dailyTasks.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-lg mb-2">今日のタスクを設定しよう！</p>
-          <p className="text-sm">階層型タスクから追加できます</p>
-        </div>
-      )}
-
-      <CompletionModal
-        isOpen={isCompletionModalOpen}
-        onClose={() => {
-          setIsCompletionModalOpen(false);
-          setCompletingTaskId(null);
-        }}
-        onSubmit={handleCompletionSubmit}
-      />
     </div>
   );
 });
