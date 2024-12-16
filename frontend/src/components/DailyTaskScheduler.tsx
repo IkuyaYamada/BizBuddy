@@ -40,6 +40,8 @@ import { addDays, subDays } from "date-fns";
 interface DailyTaskSchedulerProps {
   tasks: Task[];
   onUpdate: () => void;
+  focusedTaskId: number | null;
+  setFocusedTaskId: (id: number | null) => void;
 }
 
 interface DailyTask extends Task {
@@ -48,6 +50,7 @@ interface DailyTask extends Task {
   hierarchy_path?: string[];
   is_completed?: boolean;
   parent_id?: number;
+  is_quick_task?: boolean;
 }
 
 // ローカルストレージ
@@ -246,14 +249,13 @@ const quickAddItems: QuickAddItemType[] = [
 export const DailyTaskScheduler = forwardRef<
   DailyTaskSchedulerRef,
   DailyTaskSchedulerProps
->(({ tasks, onUpdate }, ref) => {
+>(({ tasks, onUpdate, focusedTaskId, setFocusedTaskId }, ref) => {
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(
     format(new Date(), "yyyy-MM-dd")
   );
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const [completingTaskId, setCompletingTaskId] = useState<number | null>(null);
-  const [focusedTaskId, setFocusedTaskId] = useState<number | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [tomatoCount, setTomatoCount] = useState(0);
@@ -305,10 +307,15 @@ export const DailyTaskScheduler = forwardRef<
       const storedTasks = localStorage.getItem(getStorageKey(selectedDate));
       if (storedTasks) {
         const parsedTasks = JSON.parse(storedTasks) as DailyTask[];
-        // 現在するタスクのみをフィルタリング
-        const validTasks = parsedTasks.filter((storedTask) =>
-          tasks.some((task) => task.id === storedTask.id)
-        );
+        // 通常のタスクとクイックタスクを分けて処理
+        const validTasks = parsedTasks.filter((storedTask) => {
+          // クイックタスクの場合は常に有効
+          if (storedTask.is_quick_task) {
+            return true;
+          }
+          // 通常のタスクは存在確認
+          return tasks.some((task) => task.id === storedTask.id);
+        });
         setDailyTasks(validTasks);
       } else {
         setDailyTasks([]);
@@ -383,7 +390,7 @@ export const DailyTaskScheduler = forwardRef<
         })
       );
 
-      // localStorage の更新を非同期で行う
+      // localStorage の更新を非同期行う
       requestAnimationFrame(() => {
         saveDailyTasks(newTasks);
       });
@@ -448,72 +455,153 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // 完了モーダルの送信処理を修正
-  const handleCompletionSubmit = async (data: { description: string }) => {
-    if (!completingTaskId) return;
-    const mainTaskId = findRootTask(completingTaskId);
+  // メモの保存
+  const saveMemo = async () => {
+    if (focusMemo.trim() && focusedTaskId) {
+      try {
+        const focusedTask = dailyTasks.find((t) => t.id === focusedTaskId);
+        if (!focusedTask) return;
 
-    try {
-      await updateTaskStatus(completingTaskId, true, false);
+        // クイックタスクの場合は/memos/エンドポイントを使用
+        if (focusedTask.is_quick_task) {
+          const now = new Date();
+          const jstOffset = 9 * 60;
+          now.setMinutes(now.getMinutes() + jstOffset);
 
-      if (data.description.trim()) {
-        const completingTask = dailyTasks.find(
-          (t) => t.id === completingTaskId
-        );
-        if (!completingTask) {
-          console.error("Completing task not found");
-          return;
-        }
-
-        // APIコー��の前にタスクの存在確
-        const rootTask =
-          tasks.find((t) => t.id === mainTaskId) ||
-          dailyTasks.find((t) => t.id === mainTaskId);
-        if (!rootTask) {
-          console.error("Root task not found:", mainTaskId);
-          throw new Error("Root task not found");
-        }
-
-        // 階層情報を取得
-        const hierarchyInfo = completingTask.hierarchy_path
-          ? `${completingTask.hierarchy_path.join(" > ")} > ${
-              completingTask.title
-            }`
-          : `\n\n【タスク】\n${completingTask.title}`;
-
-        // 現刻をJSTで取得
-        const now = new Date();
-        const jstOffset = 9 * 60; // JSTは+9時
-        now.setMinutes(now.getMinutes() + jstOffset);
-
-        // ワークログを作成
-        const response = await fetch(
-          `http://localhost:8000/tasks/${mainTaskId}/work-logs/`,
-          {
-            method: "POST",
+          const response = await fetch('http://localhost:8000/memos/', {
+            method: 'POST',
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              description: `【完了報告】\n${hierarchyInfo}\n\n${data.description}`,
-              started_at: now.toISOString(),
-              task_id: mainTaskId,
+              title: focusedTask.title,
+              content: focusMemo,
+              created_at: now.toISOString(),
             }),
-          }
-        );
+          });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("API Error:", errorText);
-          throw new Error(
-            `Failed to create work log: ${response.status} ${response.statusText}\nDetails: ${errorText}`
+          if (response.ok) {
+            setFocusMemo("");
+            await fetchRootTaskWorkLogs(focusedTaskId);
+          }
+        } else {
+          // 通常のタスクの場合は従来通りwork-logsを使用
+          const rootTaskId = findRootTask(focusedTaskId);
+          const hierarchyInfo = focusedTask.hierarchy_path
+            ? `${focusedTask.hierarchy_path.join(" > ")} > ${focusedTask.title}`
+            : focusedTask.title || "";
+
+          const now = new Date();
+          const jstOffset = 9 * 60;
+          now.setMinutes(now.getMinutes() + jstOffset);
+
+          const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              description: `【メモ】\n${hierarchyInfo}\n\n${focusMemo}`,
+              started_at: now.toISOString(),
+              task_id: rootTaskId,
+            }),
+          });
+
+          if (response.ok) {
+            setFocusMemo("");
+            await fetchRootTaskWorkLogs(rootTaskId);
+          }
+        }
+      } catch (error) {
+        console.error('Error saving memo:', error);
+      }
+    }
+  };
+
+  // 完了モーダルの送信理を修正
+  const handleCompletionSubmit = async (data: { description: string }) => {
+    if (!completingTaskId) return;
+    
+    try {
+      const completingTask = dailyTasks.find((t) => t.id === completingTaskId);
+      if (!completingTask) {
+        console.error("Completing task not found");
+        return;
+      }
+
+      // クイックタスクの場合は/memos/エンドポイントを使用
+      if (completingTask.is_quick_task) {
+        if (data.description.trim()) {
+          const now = new Date();
+          const jstOffset = 9 * 60;
+          now.setMinutes(now.getMinutes() + jstOffset);
+
+          const response = await fetch('http://localhost:8000/memos/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              title: `【完了】${completingTask.title}`,
+              content: data.description,
+              created_at: now.toISOString(),
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create memo');
+          }
+          await fetchRootTaskWorkLogs(completingTaskId);
+        }
+      } else {
+        // 通常のタスクの場合は従来通りの処理
+        const mainTaskId = findRootTask(completingTaskId);
+        await updateTaskStatus(completingTaskId, true, false);
+
+        if (data.description.trim()) {
+          const hierarchyInfo = completingTask.hierarchy_path
+            ? `${completingTask.hierarchy_path.join(" > ")} > ${completingTask.title}`
+            : `\n\n【タスク】\n${completingTask.title}`;
+
+          const now = new Date();
+          const jstOffset = 9 * 60;
+          now.setMinutes(now.getMinutes() + jstOffset);
+
+          const response = await fetch(
+            `http://localhost:8000/tasks/${mainTaskId}/work-logs/`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                description: `【完了報告】\n${hierarchyInfo}\n\n${data.description}`,
+                started_at: now.toISOString(),
+                task_id: mainTaskId,
+              }),
+            }
           );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+              `Failed to create work log: ${response.status} ${response.statusText}\nDetails: ${errorText}`
+            );
+          }
+
+          await fetchRootTaskWorkLogs(mainTaskId);
         }
       }
 
+      // 完��状態の更新（クイックタスク、通常タスク共通）
+      const updatedTasks = dailyTasks.map((t) =>
+        t.id === completingTaskId ? { ...t, is_completed: true } : t
+      );
+      setDailyTasks(updatedTasks);
+      saveDailyTasks(updatedTasks);
+
       setIsCompletionModalOpen(false);
       setCompletingTaskId(null);
-      await fetchRootTaskWorkLogs(mainTaskId);
     } catch (error) {
       console.error("Failed to complete task:", error);
     }
@@ -539,20 +627,25 @@ export const DailyTaskScheduler = forwardRef<
 
   // クイックアイテム追加関数
   const handleQuickAdd = (item: QuickAddItemType) => {
+    const now = new Date();
+    const jstOffset = 9 * 60;
+    now.setMinutes(now.getMinutes() + jstOffset);
+
     const newTask: DailyTask = {
-      id: Date.now(), // 一時的なID
+      id: -Date.now(), // 負の値を使用して通常のタスクと区���
       title: item.title,
       description: "",
       status: "未着手",
       priority: 0,
-      created_at: new Date().toISOString(),
-      last_updated: new Date().toISOString(),
+      created_at: now.toISOString(),
+      last_updated: now.toISOString(),
       order: dailyTasks.length,
       estimated_minutes: item.estimatedMinutes,
       is_completed: false,
       motivation: 0,
       priority_score: 0,
       motivation_score: 0,
+      is_quick_task: true, // クイックタスクであることを示すフラグ
     };
 
     const updatedTasks = [...dailyTasks, newTask];
@@ -602,7 +695,7 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // フォーカスモードが除されたらタイマをリセット
+  // フォーカスモーが除されたらタイマをリセット
   useEffect(() => {
     if (!focusedTaskId) {
       if (timerRef.current) {
@@ -633,53 +726,37 @@ export const DailyTaskScheduler = forwardRef<
     return `${minutes}分`;
   };
 
-  // メモの保存
-  const saveMemo = async () => {
-    if (focusMemo.trim() && focusedTaskId) {
-      try {
-        // ルートタスクIDを取得
-        const rootTaskId = findRootTask(focusedTaskId);
-
-        // 階層情報を取得
-        const focusedTask = dailyTasks.find((t) => t.id === focusedTaskId);
-        const hierarchyInfo = focusedTask?.hierarchy_path
-          ? `${focusedTask.hierarchy_path.join(" > ")} > ${focusedTask.title}`
-          : focusedTask?.title || "";
-
-        const response = await fetch(
-          `http://localhost:8000/tasks/${rootTaskId}/work-logs/`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              description: `【フモ】\n${hierarchyInfo}\n\n${focusMemo}`,
-              started_at: new Date().toISOString(),
-              task_id: rootTaskId,
-            }),
-          }
-        );
-
-        if (response.ok) {
-          setFocusMemo(""); // メモをクリア
-        }
-      } catch (error) {
-        console.error("Error saving work log:", error);
-      }
-    }
-  };
-
-  // ルトタスクのワークログを取得る関数
+  // ルートタスクのワークログを取得する関数
   const fetchRootTaskWorkLogs = async (taskId: number) => {
     try {
-      const rootTaskId = findRootTask(taskId);
-      const response = await fetch(
-        `http://localhost:8000/tasks/${rootTaskId}/work-logs/`
-      );
-      if (response.ok) {
-        const logs = await response.json();
-        setRootTaskWorkLogs(logs);
+      const task = dailyTasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      // クイックタスクの場合はメモを取得
+      if (task.is_quick_task) {
+        const response = await fetch('http://localhost:8000/memos/?limit=3&order_by=-created_at');
+        if (response.ok) {
+          const memos = await response.json();
+          // このクイックタスクに関連するメモをフィルタリン
+          const relevantMemos = memos
+            .filter((memo: any) => 
+              memo.title === task.title || memo.title === `【完了】${task.title}`
+            )
+            .map((memo: any) => ({
+              id: memo.id,
+              description: memo.content,
+              started_at: memo.created_at,
+            }));
+          setRootTaskWorkLogs(relevantMemos);
+        }
+      } else {
+        // 通常のタスクの場合は従来通りwork-logsを取得
+        const rootTaskId = findRootTask(taskId);
+        const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`);
+        if (response.ok) {
+          const logs = await response.json();
+          setRootTaskWorkLogs(logs);
+        }
       }
     } catch (error) {
       console.error("Error fetching work logs:", error);
@@ -687,7 +764,7 @@ export const DailyTaskScheduler = forwardRef<
     }
   };
 
-  // フォーカスモードの切り替え時にワークログを取得
+  // フォーカスモードの��り替え時にワークログを取得
   const handleFocusToggle = async (taskId: number) => {
     if (focusedTaskId === taskId) {
       await saveMemo();
@@ -721,7 +798,7 @@ export const DailyTaskScheduler = forwardRef<
     console.log("New index:", newIndex);
   };
 
-  // キーボードイベントの処理
+  // キーイベントの処理
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!focusedTaskId) return;
@@ -736,14 +813,8 @@ export const DailyTaskScheduler = forwardRef<
         onUpdate(); // タスクの再取得をトリガー
       }
       // タスク移動の処理
-      else if (
-        e.ctrlKey &&
-        (e.key === "ArrowLeft" ||
-          e.key === "ArrowRight" ||
-          e.key === "j" ||
-          e.key === "k")
-      ) {
-        // 必ずpreventDefaultを先に呼び出す
+      else if ((e.metaKey || e.ctrlKey) && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "j" || e.key === "k")) {
+        // ずpreventDefaultを先に呼び出す
         e.preventDefault();
 
         const currentIndex = dailyTasks.findIndex(
@@ -778,7 +849,7 @@ export const DailyTaskScheduler = forwardRef<
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [focusedTaskId, dailyTasks, focusMemo]);
 
-  // タイマーの更新間隔を1分に設定
+  // タイマーの更新間隔を1分設定
   useEffect(() => {
     if (isTimerRunning && focusedTaskId) {
       timerRef.current = setInterval(() => {
@@ -789,7 +860,7 @@ export const DailyTaskScheduler = forwardRef<
           }
           return newTime;
         });
-      }, 60000); // 1分 = 60000ミリ秒
+      }, 60000); // 1 = 60000ミリ秒
     }
     return () => {
       if (timerRef.current) {
@@ -818,7 +889,7 @@ export const DailyTaskScheduler = forwardRef<
     return [];
   };
 
-  // SortableTaskItemコンポーネントを再実装
+  // SortableTaskItemコンポーネントを再実
   const SortableTaskItem = ({
     task,
     index,
@@ -940,7 +1011,7 @@ export const DailyTaskScheduler = forwardRef<
 
   const MemoizedSortableTaskItem = React.memo(SortableTaskItem);
 
-  // タブ切り替え時のデータ保持
+  // タブ��り替え時のータ保持
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && focusedTaskId !== null) {
@@ -961,7 +1032,7 @@ export const DailyTaskScheduler = forwardRef<
     };
   }, [focusedTaskId]);
 
-  // カーソル位置の復元
+  // カソル位置の復元
   useEffect(() => {
     if (focusedTaskId !== null && memoRef.current && cursorPosition !== null) {
       requestAnimationFrame(() => {
@@ -1031,7 +1102,7 @@ export const DailyTaskScheduler = forwardRef<
                     }
                   </div>
 
-                  {/* タイマセクション */}
+                  {/* タマクション */}
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-6">
                       <button
@@ -1147,7 +1218,7 @@ export const DailyTaskScheduler = forwardRef<
               </div>
             </div>
 
-            {/* メモエリアとリサイザー */}
+            {/* メモエリアとサイザー */}
             <div className="flex-1 bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15 mt-2">
               <div className="p-4 pb-2">
                 <textarea
@@ -1156,80 +1227,8 @@ export const DailyTaskScheduler = forwardRef<
                   onChange={(e) => setFocusMemo(e.target.value)}
                   onKeyDown={async (e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                      // ... existing code ...
                       e.preventDefault();
-                      if (focusMemo.trim()) {
-                        try {
-                          // 階層を辿って根のタスクを見つける
-                          const findRootTask = (
-                            taskId: number,
-                            visited = new Set<number>()
-                          ): number => {
-                            if (visited.has(taskId)) {
-                              return taskId;
-                            }
-                            visited.add(taskId);
-
-                            const task = tasks.find((t) => t.id === taskId);
-                            if (task) {
-                              if (!task.parent_id) {
-                                return task.id;
-                              }
-                              return findRootTask(task.parent_id, visited);
-                            }
-
-                            const currentTask = dailyTasks.find(
-                              (t) => t.id === taskId
-                            );
-                            if (!currentTask || !currentTask.parent_id) {
-                              return taskId;
-                            }
-
-                            return findRootTask(currentTask.parent_id, visited);
-                          };
-
-                          // ルートタスクIDを取得
-                          const rootTaskId = findRootTask(focusedTaskId);
-
-                          // 階層情報を取得
-                          const focusedTask = dailyTasks.find(
-                            (t) => t.id === focusedTaskId
-                          );
-                          const hierarchyInfo = focusedTask?.hierarchy_path
-                            ? `${focusedTask.hierarchy_path.join(" > ")} > ${
-                                focusedTask.title
-                              }`
-                            : focusedTask?.title || "";
-
-                          // JSTのオフセットを考慮して日時を調整
-                          const jstOffset = 9 * 60;
-                          const now = new Date();
-                          now.setMinutes(now.getMinutes() + jstOffset);
-
-                          const response = await fetch(
-                            `http://localhost:8000/tasks/${rootTaskId}/work-logs/`,
-                            {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                              },
-                              body: JSON.stringify({
-                                description: `【メモ】\n${hierarchyInfo}\n\n${focusMemo}`,
-                                started_at: now.toISOString(),
-                                task_id: rootTaskId,
-                              }),
-                            }
-                          );
-
-                          if (response.ok) {
-                            setFocusMemo(""); // メモをクリア
-                            // メモ保存後にワークログを再取得
-                            await fetchRootTaskWorkLogs(focusedTaskId);
-                          }
-                        } catch (error) {
-                          console.error("Error saving work log:", error);
-                        }
-                      }
+                      await saveMemo();
                     }
                   }}
                   className="w-full resize-none bg-white/5 border-0 rounded-xl focus:ring-2 focus:ring-white/20 text-white placeholder-gray-400/60 text-lg"
@@ -1277,13 +1276,11 @@ export const DailyTaskScheduler = forwardRef<
                 className="hover:bg-white/20"
               />
 
-              {/* 作業ログ示エリア */}
-              <div className="p-4 pt-2">
-                <h3 className="text-lg font-medium text-white/90 mb-6">
-                  作業ログ
-                </h3>
-                <div
-                  className="space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+              {/* 作業ログエリア */}
+              <div className="p-8 pt-2">
+                <h3 className="text-lg font-medium text-white/90 mb-6">作業ログ</h3>
+                <div 
+                  className="space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent" 
                   style={{ maxHeight: `calc(${100 - memoHeight}vh - 100px)` }}
                 >
                   {rootTaskWorkLogs
@@ -1311,7 +1308,7 @@ export const DailyTaskScheduler = forwardRef<
                     ))}
                   {rootTaskWorkLogs.length === 0 && (
                     <div className="text-center text-gray-400/60">
-                      作業ログはありまん
+                      作業ログはありません
                     </div>
                   )}
                 </div>
@@ -1322,14 +1319,8 @@ export const DailyTaskScheduler = forwardRef<
           {/* キーボードショートカットヘルプ */}
           <div className="fixed bottom-4 right-4 text-sm text-gray-400/60">
             <div>ESC: フォーカスモード終了</div>
-            <div>
-              {navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl"}{" "}
-              + ←/→ または j/k: タスク切り替え
-            </div>
-            <div>
-              {navigator.platform.toLowerCase().includes("mac") ? "" : "Ctrl"} +
-              Enter: メモ保存
-            </div>
+            <div>{navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'} + ←/→ または j/k: タスク切り替え</div>
+            <div>{navigator.platform.toLowerCase().includes('mac') ? '' : 'Ctrl'} + Enter: メモ保存</div>
           </div>
         </div>
       )}
@@ -1339,41 +1330,25 @@ export const DailyTaskScheduler = forwardRef<
         <div className="sticky top-0 bg-gradient-to-br from-gray-50 to-gray-100 border-b z-10">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between py-2">
-              <div>
-                <h3 className="text-base font-medium text-gray-700">
-                  本日のタスク
-                </h3>
-                <div className="text-xs text-gray-500 flex items-center gap-2">
-                  <span className="flex items-center gap-1">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    合計: {totalHours}時間{remainingMinutes}分
-                  </span>
+              <div className="flex items-center gap-4">
+                <div>
+                  <h3 className="text-base font-medium text-gray-700">本日のタスク</h3>
+                  <div className="text-xs text-gray-500 flex items-center gap-2">
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      合計: {totalHours}時間{remainingMinutes}分
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5">
                 {dailyTasks.length > 0 && (
                   <button
-                    onClick={() =>
+                    onClick={() => focusedTaskId ? setFocusedTaskId(null) : setFocusedTaskId(dailyTasks[0].id)}
+                    className={`w-10 h-[52px] flex items-center justify-center rounded-lg transition-all duration-200 ${
                       focusedTaskId
-                        ? setFocusedTaskId(null)
-                        : setFocusedTaskId(dailyTasks[0].id)
-                    }
-                    className={`w-7 h-7 flex items-center justify-center rounded transition-all duration-200 ${
-                      focusedTaskId
-                        ? "bg-blue-500 text-white hover:bg-blue-600"
-                        : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300"
+                        ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm"
+                        : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-blue-500"
                     }`}
                     title={
                       focusedTaskId
@@ -1382,7 +1357,7 @@ export const DailyTaskScheduler = forwardRef<
                     }
                   >
                     <svg
-                      className="w-3.5 h-3.5"
+                      className="w-4 h-4"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -1400,6 +1375,8 @@ export const DailyTaskScheduler = forwardRef<
                     </svg>
                   </button>
                 )}
+              </div>
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() =>
                     setSelectedDate(

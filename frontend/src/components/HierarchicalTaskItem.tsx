@@ -13,7 +13,6 @@ interface HierarchicalTaskItemProps {
   onEditSave: (taskId: number, content: string) => void;
   onAddSubTask: (taskId: number) => void;
   onDeleteTask: (taskId: number) => void;
-  onAddToDaily: (task: HierarchicalTask) => void;
   onAddSiblingTask: (taskId: number) => void;
   onIncreaseLevel: (taskId: number) => void;
   onDecreaseLevel: (taskId: number) => void;
@@ -23,6 +22,7 @@ interface HierarchicalTaskItemProps {
   editingContent: string;
   onEditContentChange: (content: string) => void;
   isInDailyTasks: boolean;
+  onAddToDaily: () => void;
   isFocused?: boolean;
   onFocusToggle: () => void;
 }
@@ -58,7 +58,6 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
   onEditSave,
   onAddSubTask,
   onDeleteTask,
-  onAddToDaily,
   onAddSiblingTask,
   onIncreaseLevel,
   onDecreaseLevel,
@@ -68,6 +67,7 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
   editingContent,
   onEditContentChange,
   isInDailyTasks,
+  onAddToDaily,
   isFocused = false,
   onFocusToggle,
 }) => {
@@ -335,7 +335,7 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
       setDeleteConfirmState("confirming");
       deleteConfirmTimeoutRef.current = setTimeout(() => {
         setDeleteConfirmState("initial");
-      }, 2000); // 2秒後��リセット
+      }, 2000); // 2秒後にリセット
     } else {
       onDeleteTask(task.id);
       setDeleteConfirmState("initial");
@@ -480,23 +480,17 @@ export const HierarchicalTaskItem: React.FC<HierarchicalTaskItemProps> = ({
             </span>
           )}
           <button
-            onClick={() => onAddToDaily(task)}
-            className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded transition-all duration-200 ${
-              isInDailyTasks
-                ? "bg-blue-100 text-blue-500 hover:bg-blue-200"
-                : "text-gray-400 hover:bg-gray-200"
+            onClick={onAddToDaily}
+            className={`flex-shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-gray-200 ${
+              isInDailyTasks ? "text-blue-500" : "text-gray-400"
             }`}
-            title={
-              isInDailyTasks ? "本日のタスクから削除" : "本日のタスクに追加"
-            }
+            title={isInDailyTasks ? "本日のタスクに追加済み" : "本日のタスクに追加"}
           >
             <svg
-              className={`w-3.5 h-3.5 ${
-                isInDailyTasks
-                  ? "fill-blue-100 stroke-blue-500"
-                  : "fill-none stroke-current"
-              }`}
+              className="w-3.5 h-3.5"
+              fill="none"
               viewBox="0 0 24 24"
+              stroke="currentColor"
             >
               <path
                 strokeLinecap="round"

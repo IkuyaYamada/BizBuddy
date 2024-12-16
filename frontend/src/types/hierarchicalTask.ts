@@ -13,6 +13,7 @@ export interface HierarchicalTask {
   position?: number;
   status?: string;
   previous_status?: string;
+  scheduled_for_today?: boolean;
 }
 
 export interface TaskTreeNode extends HierarchicalTask {
