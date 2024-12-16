@@ -133,9 +133,7 @@ const CompletionModal: React.FC<CompletionModalProps> = ({
                       完了報告
                     </label>
                     {error && (
-                      <div className="text-sm text-red-500 mb-2">
-                        {error}
-                      </div>
+                      <div className="text-sm text-red-500 mb-2">{error}</div>
                     )}
                     <textarea
                       value={description}
@@ -269,7 +267,10 @@ export const DailyTaskScheduler = forwardRef<
   const [memoHeight, setMemoHeight] = useState(70); // 初期値70%
 
   // 階層を辿って根のタスクを見つける共通関数
-  const findRootTask = (taskId: number, visited = new Set<number>()): number => {
+  const findRootTask = (
+    taskId: number,
+    visited = new Set<number>()
+  ): number => {
     if (visited.has(taskId)) {
       return taskId;
     }
@@ -420,7 +421,11 @@ export const DailyTaskScheduler = forwardRef<
   };
 
   // タスクのステータスを更新する関数
-  const updateTaskStatus = async (taskId: number, isCompleted: boolean, wantUpdate: boolean = true) => {
+  const updateTaskStatus = async (
+    taskId: number,
+    isCompleted: boolean,
+    wantUpdate: boolean = true
+  ) => {
     const originalTask = tasks.find((t) => t.id === taskId);
     if (!originalTask) return;
 
@@ -452,7 +457,9 @@ export const DailyTaskScheduler = forwardRef<
       await updateTaskStatus(completingTaskId, true, false);
 
       if (data.description.trim()) {
-        const completingTask = dailyTasks.find((t) => t.id === completingTaskId);
+        const completingTask = dailyTasks.find(
+          (t) => t.id === completingTaskId
+        );
         if (!completingTask) {
           console.error("Completing task not found");
           return;
@@ -639,23 +646,26 @@ export const DailyTaskScheduler = forwardRef<
           ? `${focusedTask.hierarchy_path.join(" > ")} > ${focusedTask.title}`
           : focusedTask?.title || "";
 
-        const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            description: `【フモ】\n${hierarchyInfo}\n\n${focusMemo}`,
-            started_at: new Date().toISOString(),
-            task_id: rootTaskId,
-          }),
-        });
+        const response = await fetch(
+          `http://localhost:8000/tasks/${rootTaskId}/work-logs/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              description: `【フモ】\n${hierarchyInfo}\n\n${focusMemo}`,
+              started_at: new Date().toISOString(),
+              task_id: rootTaskId,
+            }),
+          }
+        );
 
         if (response.ok) {
           setFocusMemo(""); // メモをクリア
         }
       } catch (error) {
-        console.error('Error saving work log:', error);
+        console.error("Error saving work log:", error);
       }
     }
   };
@@ -664,13 +674,15 @@ export const DailyTaskScheduler = forwardRef<
   const fetchRootTaskWorkLogs = async (taskId: number) => {
     try {
       const rootTaskId = findRootTask(taskId);
-      const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`);
+      const response = await fetch(
+        `http://localhost:8000/tasks/${rootTaskId}/work-logs/`
+      );
       if (response.ok) {
         const logs = await response.json();
         setRootTaskWorkLogs(logs);
       }
     } catch (error) {
-      console.error('Error fetching work logs:', error);
+      console.error("Error fetching work logs:", error);
       setRootTaskWorkLogs([]);
     }
   };
@@ -722,12 +734,18 @@ export const DailyTaskScheduler = forwardRef<
         setTomatoCount(0);
         await saveMemo();
         onUpdate(); // タスクの再取得をトリガー
-      } 
+      }
       // タスク移動の処理
-      else if ((e.metaKey || e.ctrlKey) && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "j" || e.key === "k")) {
+      else if (
+        e.ctrlKey &&
+        (e.key === "ArrowLeft" ||
+          e.key === "ArrowRight" ||
+          e.key === "j" ||
+          e.key === "k")
+      ) {
         // 必ずpreventDefaultを先に呼び出す
         e.preventDefault();
-        
+
         const currentIndex = dailyTasks.findIndex(
           (task) => task.id === focusedTaskId
         );
@@ -865,7 +883,9 @@ export const DailyTaskScheduler = forwardRef<
           )}
           <div
             className={`text-base whitespace-pre-wrap break-words ${
-              task.is_completed ? "text-green-600 line-through" : "text-gray-600"
+              task.is_completed
+                ? "text-green-600 line-through"
+                : "text-gray-600"
             }`}
           >
             {task.title}
@@ -955,14 +975,14 @@ export const DailyTaskScheduler = forwardRef<
 
   // リサイザーのスタイルを変更
   const resizeBarStyle = {
-    height: '4px',  // 操作しやすいように少し太く
-    backgroundColor: '#e5e7eb',
-    cursor: 'row-resize',
-    margin: '0',
-    transition: 'background-color 0.2s',
-    ':hover': {
-      backgroundColor: '#d1d5db',
-    }
+    height: "4px", // 操作しやすいように少し太く
+    backgroundColor: "#e5e7eb",
+    cursor: "row-resize",
+    margin: "0",
+    transition: "background-color 0.2s",
+    ":hover": {
+      backgroundColor: "#d1d5db",
+    },
   };
 
   return (
@@ -970,15 +990,15 @@ export const DailyTaskScheduler = forwardRef<
       {/* フォーカスモード */}
       {focusedTaskId && (
         <div className="fixed inset-0 bg-gray-900/90 backdrop-blur-md z-40 flex items-center justify-center transition-all duration-500">
-          <div 
-            className="w-full h-screen max-w-7xl mx-auto px-4 py-8 flex flex-col opacity-0 animate-fade-in"
+          <div
+            className="w-full h-screen max-w-7xl mx-auto px-4 py-2 flex flex-col opacity-0 animate-fade-in"
             style={{
-              animation: 'fadeIn 0.5s ease-out forwards',
+              animation: "fadeIn 0.5s ease-out forwards",
             }}
           >
             <div className="w-full">
               <div className="bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15">
-                <div className="p-8">
+                <div className="p-4">
                   {/* 階層パス */}
                   <div className="text-sm text-gray-400/80 mb-4 font-mono">
                     {(() => {
@@ -991,16 +1011,24 @@ export const DailyTaskScheduler = forwardRef<
 
                   {/* タスク番号 */}
                   <div className="text-sm text-gray-400/80 mb-2 font-mono tracking-wider">
-                    Task {dailyTasks.findIndex((t) => t.id === focusedTaskId) + 1} / {dailyTasks.length}
+                    Task{" "}
+                    {dailyTasks.findIndex((t) => t.id === focusedTaskId) + 1} /{" "}
+                    {dailyTasks.length}
                   </div>
 
                   {/* タスクタイトル */}
-                  <div className={`text-3xl font-medium mb-2 tracking-wide ${
-                    dailyTasks.find((t) => t.id === focusedTaskId)?.is_completed
-                      ? "text-green-300 line-through"
-                      : "text-white"
-                  }`}>
-                    {dailyTasks.find((task) => task.id === focusedTaskId)?.title}
+                  <div
+                    className={`text-3xl font-medium mb-2 tracking-wide ${
+                      dailyTasks.find((t) => t.id === focusedTaskId)
+                        ?.is_completed
+                        ? "text-green-300 line-through"
+                        : "text-white"
+                    }`}
+                  >
+                    {
+                      dailyTasks.find((task) => task.id === focusedTaskId)
+                        ?.title
+                    }
                   </div>
 
                   {/* タイマセクション */}
@@ -1048,21 +1076,31 @@ export const DailyTaskScheduler = forwardRef<
                       <button
                         onClick={() => handleMoveTaskOnFocusedView("up")}
                         className="text-gray-400/80 hover:text-white transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
-                        disabled={dailyTasks.findIndex((t) => t.id === focusedTaskId) === 0}
+                        disabled={
+                          dailyTasks.findIndex(
+                            (t) => t.id === focusedTaskId
+                          ) === 0
+                        }
                       >
                         前のタスク
                       </button>
                       <button
                         onClick={() => handleMoveTaskOnFocusedView("down")}
                         className="text-gray-400/80 hover:text-white transition-colors duration-300 px-4 py-2 rounded-lg hover:bg-white/10"
-                        disabled={dailyTasks.findIndex((t) => t.id === focusedTaskId) === dailyTasks.length - 1}
+                        disabled={
+                          dailyTasks.findIndex(
+                            (t) => t.id === focusedTaskId
+                          ) ===
+                          dailyTasks.length - 1
+                        }
                       >
                         次のタスク
                       </button>
                       <button
                         onClick={() => onToggleComplete(focusedTaskId)}
                         className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 ${
-                          dailyTasks.find((t) => t.id === focusedTaskId)?.is_completed
+                          dailyTasks.find((t) => t.id === focusedTaskId)
+                            ?.is_completed
                             ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
                             : "bg-white/10 text-gray-400 hover:bg-white/20"
                         }`}
@@ -1088,15 +1126,20 @@ export const DailyTaskScheduler = forwardRef<
                   <div className="w-full bg-white/5 rounded-full h-1.5 mb-6 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-1000 ${
-                        dailyTasks.find((t) => t.id === focusedTaskId)?.is_completed
+                        dailyTasks.find((t) => t.id === focusedTaskId)
+                          ?.is_completed
                           ? "bg-green-400"
                           : "bg-red-400"
                       }`}
                       style={{
-                        width: `${((timeElapsed % TOMATO_TIME) / TOMATO_TIME) * 100}%`,
-                        boxShadow: dailyTasks.find((t) => t.id === focusedTaskId)?.is_completed
-                          ? '0 0 10px rgba(74, 222, 128, 0.5)'
-                          : '0 0 10px rgba(248, 113, 113, 0.5)',
+                        width: `${
+                          ((timeElapsed % TOMATO_TIME) / TOMATO_TIME) * 100
+                        }%`,
+                        boxShadow: dailyTasks.find(
+                          (t) => t.id === focusedTaskId
+                        )?.is_completed
+                          ? "0 0 10px rgba(74, 222, 128, 0.5)"
+                          : "0 0 10px rgba(248, 113, 113, 0.5)",
                       }}
                     />
                   </div>
@@ -1106,7 +1149,7 @@ export const DailyTaskScheduler = forwardRef<
 
             {/* メモエリアとリサイザー */}
             <div className="flex-1 bg-white/10 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-2xl transition-all duration-300 hover:bg-white/15 mt-2">
-              <div className="p-8 pb-2">
+              <div className="p-4 pb-2">
                 <textarea
                   ref={memoRef}
                   value={focusMemo}
@@ -1114,74 +1157,86 @@ export const DailyTaskScheduler = forwardRef<
                   onKeyDown={async (e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                       // ... existing code ...
-                        e.preventDefault();
-                        if (focusMemo.trim()) {
-                          try {
-                            // 階層を辿って根のタスクを見つける
-                            const findRootTask = (taskId: number, visited = new Set<number>()): number => {
-                              if (visited.has(taskId)) {
-                                return taskId;
+                      e.preventDefault();
+                      if (focusMemo.trim()) {
+                        try {
+                          // 階層を辿って根のタスクを見つける
+                          const findRootTask = (
+                            taskId: number,
+                            visited = new Set<number>()
+                          ): number => {
+                            if (visited.has(taskId)) {
+                              return taskId;
+                            }
+                            visited.add(taskId);
+
+                            const task = tasks.find((t) => t.id === taskId);
+                            if (task) {
+                              if (!task.parent_id) {
+                                return task.id;
                               }
-                              visited.add(taskId);
+                              return findRootTask(task.parent_id, visited);
+                            }
 
-                              const task = tasks.find((t) => t.id === taskId);
-                              if (task) {
-                                if (!task.parent_id) {
-                                  return task.id;
-                                }
-                                return findRootTask(task.parent_id, visited);
-                              }
+                            const currentTask = dailyTasks.find(
+                              (t) => t.id === taskId
+                            );
+                            if (!currentTask || !currentTask.parent_id) {
+                              return taskId;
+                            }
 
-                              const currentTask = dailyTasks.find((t) => t.id === taskId);
-                              if (!currentTask || !currentTask.parent_id) {
-                                return taskId;
-                              }
+                            return findRootTask(currentTask.parent_id, visited);
+                          };
 
-                              return findRootTask(currentTask.parent_id, visited);
-                            };
+                          // ルートタスクIDを取得
+                          const rootTaskId = findRootTask(focusedTaskId);
 
-                            // ルートタスクIDを取得
-                            const rootTaskId = findRootTask(focusedTaskId);
+                          // 階層情報を取得
+                          const focusedTask = dailyTasks.find(
+                            (t) => t.id === focusedTaskId
+                          );
+                          const hierarchyInfo = focusedTask?.hierarchy_path
+                            ? `${focusedTask.hierarchy_path.join(" > ")} > ${
+                                focusedTask.title
+                              }`
+                            : focusedTask?.title || "";
 
-                            // 階層情報を取得
-                            const focusedTask = dailyTasks.find((t) => t.id === focusedTaskId);
-                            const hierarchyInfo = focusedTask?.hierarchy_path
-                              ? `${focusedTask.hierarchy_path.join(" > ")} > ${focusedTask.title}`
-                              : focusedTask?.title || "";
+                          // JSTのオフセットを考慮して日時を調整
+                          const jstOffset = 9 * 60;
+                          const now = new Date();
+                          now.setMinutes(now.getMinutes() + jstOffset);
 
-                            // JSTのオフセットを考慮して日時を調整
-                            const jstOffset = 9 * 60;
-                            const now = new Date();
-                            now.setMinutes(now.getMinutes() + jstOffset);
-
-                            const response = await fetch(`http://localhost:8000/tasks/${rootTaskId}/work-logs/`, {
-                              method: 'POST',
+                          const response = await fetch(
+                            `http://localhost:8000/tasks/${rootTaskId}/work-logs/`,
+                            {
+                              method: "POST",
                               headers: {
-                                'Content-Type': 'application/json',
+                                "Content-Type": "application/json",
                               },
                               body: JSON.stringify({
                                 description: `【メモ】\n${hierarchyInfo}\n\n${focusMemo}`,
                                 started_at: now.toISOString(),
                                 task_id: rootTaskId,
                               }),
-                            });
-
-                            if (response.ok) {
-                              setFocusMemo(""); // メモをクリア
-                              // メモ保存後にワークログを再取得
-                              await fetchRootTaskWorkLogs(focusedTaskId);
                             }
-                          } catch (error) {
-                            console.error('Error saving work log:', error);
+                          );
+
+                          if (response.ok) {
+                            setFocusMemo(""); // メモをクリア
+                            // メモ保存後にワークログを再取得
+                            await fetchRootTaskWorkLogs(focusedTaskId);
                           }
+                        } catch (error) {
+                          console.error("Error saving work log:", error);
                         }
                       }
-                    }}
+                    }
+                  }}
                   className="w-full resize-none bg-white/5 border-0 rounded-xl focus:ring-2 focus:ring-white/20 text-white placeholder-gray-400/60 text-lg"
                   placeholder="メモを入力... (Ctrl+Enter で保存)"
-                  style={{ 
+                  style={{
                     height: `calc(${memoHeight}vh - 300px)`,
-                    caretColor: 'white',
+                    caretColor: "white",
                   }}
                 />
               </div>
@@ -1194,47 +1249,66 @@ export const DailyTaskScheduler = forwardRef<
 
                   const handleMouseMove = (e: MouseEvent) => {
                     const delta = e.clientY - startY;
-                    const newHeight = Math.max(20, Math.min(90, startHeight + (delta / window.innerHeight) * 100));
+                    const newHeight = Math.max(
+                      20,
+                      Math.min(
+                        90,
+                        startHeight + (delta / window.innerHeight) * 100
+                      )
+                    );
                     setMemoHeight(newHeight);
                   };
 
                   const handleMouseUp = () => {
-                    document.removeEventListener('mousemove', handleMouseMove);
-                    document.removeEventListener('mouseup', handleMouseUp);
+                    document.removeEventListener("mousemove", handleMouseMove);
+                    document.removeEventListener("mouseup", handleMouseUp);
                   };
 
-                  document.addEventListener('mousemove', handleMouseMove);
-                  document.addEventListener('mouseup', handleMouseUp);
+                  document.addEventListener("mousemove", handleMouseMove);
+                  document.addEventListener("mouseup", handleMouseUp);
                 }}
                 style={{
-                  height: '8px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  cursor: 'row-resize',
-                  margin: '0',
-                  transition: 'background-color 0.2s',
+                  height: "8px",
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  cursor: "row-resize",
+                  margin: "0",
+                  transition: "background-color 0.2s",
                 }}
                 className="hover:bg-white/20"
               />
 
               {/* 作業ログ示エリア */}
-              <div className="p-8 pt-2">
-                <h3 className="text-lg font-medium text-white/90 mb-6">作業ログ</h3>
-                <div 
-                  className="space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent" 
+              <div className="p-4 pt-2">
+                <h3 className="text-lg font-medium text-white/90 mb-6">
+                  作業ログ
+                </h3>
+                <div
+                  className="space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
                   style={{ maxHeight: `calc(${100 - memoHeight}vh - 100px)` }}
                 >
-                  {rootTaskWorkLogs.sort((a, b) => 
-                    new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-                  ).map((log) => (
-                    <div key={log.id} className="border-b border-white/10 pb-4">
-                      <div className="text-sm text-gray-400/80 mb-2 font-mono">
-                        {format(new Date(log.started_at), "yyyy/MM/dd HH:mm", { locale: ja })}
+                  {rootTaskWorkLogs
+                    .sort(
+                      (a, b) =>
+                        new Date(b.started_at).getTime() -
+                        new Date(a.started_at).getTime()
+                    )
+                    .map((log) => (
+                      <div
+                        key={log.id}
+                        className="border-b border-white/10 pb-4"
+                      >
+                        <div className="text-sm text-gray-400/80 mb-2 font-mono">
+                          {format(
+                            new Date(log.started_at),
+                            "yyyy/MM/dd HH:mm",
+                            { locale: ja }
+                          )}
+                        </div>
+                        <div className="text-base text-gray-300/90 whitespace-pre-wrap">
+                          {log.description}
+                        </div>
                       </div>
-                      <div className="text-base text-gray-300/90 whitespace-pre-wrap">
-                        {log.description}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                   {rootTaskWorkLogs.length === 0 && (
                     <div className="text-center text-gray-400/60">
                       作業ログはありまん
@@ -1247,9 +1321,15 @@ export const DailyTaskScheduler = forwardRef<
 
           {/* キーボードショートカットヘルプ */}
           <div className="fixed bottom-4 right-4 text-sm text-gray-400/60">
-            <div>ESC: フォーカス��ード終了</div>
-            <div>{navigator.platform.toLowerCase().includes('mac') ? '⌘' : 'Ctrl'} + ←/→ または j/k: タスク切り替え</div>
-            <div>{navigator.platform.toLowerCase().includes('mac') ? '' : 'Ctrl'} + Enter: メモ保存</div>
+            <div>ESC: フォーカスモード終了</div>
+            <div>
+              {navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl"}{" "}
+              + ←/→ または j/k: タスク切り替え
+            </div>
+            <div>
+              {navigator.platform.toLowerCase().includes("mac") ? "" : "Ctrl"} +
+              Enter: メモ保存
+            </div>
           </div>
         </div>
       )}
@@ -1260,11 +1340,23 @@ export const DailyTaskScheduler = forwardRef<
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between py-2">
               <div>
-                <h3 className="text-base font-medium text-gray-700">本日のタスク</h3>
+                <h3 className="text-base font-medium text-gray-700">
+                  本日のタスク
+                </h3>
                 <div className="text-xs text-gray-500 flex items-center gap-2">
                   <span className="flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     合計: {totalHours}時間{remainingMinutes}分
                   </span>
@@ -1273,13 +1365,21 @@ export const DailyTaskScheduler = forwardRef<
               <div className="flex items-center gap-1.5">
                 {dailyTasks.length > 0 && (
                   <button
-                    onClick={() => focusedTaskId ? setFocusedTaskId(null) : setFocusedTaskId(dailyTasks[0].id)}
+                    onClick={() =>
+                      focusedTaskId
+                        ? setFocusedTaskId(null)
+                        : setFocusedTaskId(dailyTasks[0].id)
+                    }
                     className={`w-7 h-7 flex items-center justify-center rounded transition-all duration-200 ${
                       focusedTaskId
                         ? "bg-blue-500 text-white hover:bg-blue-600"
                         : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300"
                     }`}
-                    title={focusedTaskId ? "フォーカスモード解除" : "フォーカスモード開始"}
+                    title={
+                      focusedTaskId
+                        ? "フォーカスモード解除"
+                        : "フォーカスモード開始"
+                    }
                   >
                     <svg
                       className="w-3.5 h-3.5"
@@ -1291,16 +1391,21 @@ export const DailyTaskScheduler = forwardRef<
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d={focusedTaskId
-                          ? "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                          : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        d={
+                          focusedTaskId
+                            ? "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                            : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                         }
                       />
                     </svg>
                   </button>
                 )}
                 <button
-                  onClick={() => setSelectedDate(format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
+                  onClick={() =>
+                    setSelectedDate(
+                      format(subDays(new Date(selectedDate), 1), "yyyy-MM-dd")
+                    )
+                  }
                   className="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-sm transition-all duration-200 text-gray-500"
                   title="昨日"
                 >
@@ -1315,7 +1420,11 @@ export const DailyTaskScheduler = forwardRef<
                 />
 
                 <button
-                  onClick={() => setSelectedDate(format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd"))}
+                  onClick={() =>
+                    setSelectedDate(
+                      format(addDays(new Date(selectedDate), 1), "yyyy-MM-dd")
+                    )
+                  }
                   className="w-7 h-7 flex items-center justify-center rounded hover:bg-white hover:shadow-sm transition-all duration-200 text-gray-500"
                   title="翌日"
                 >
@@ -1340,7 +1449,9 @@ export const DailyTaskScheduler = forwardRef<
                   {item.icon}
                 </span>
                 <span>{item.title}</span>
-                <span className="text-gray-400">({item.estimatedMinutes}分)</span>
+                <span className="text-gray-400">
+                  ({item.estimatedMinutes}分)
+                </span>
               </button>
             ))}
           </div>
@@ -1351,9 +1462,14 @@ export const DailyTaskScheduler = forwardRef<
               <div className="flex items-center gap-3">
                 <div className="text-2xl font-bold text-blue-600">
                   {dailyTasks.filter((task) => task.is_completed).length}
-                  <span className="text-gray-400 font-normal"> / {dailyTasks.length}</span>
+                  <span className="text-gray-400 font-normal">
+                    {" "}
+                    / {dailyTasks.length}
+                  </span>
                 </div>
-                <div className="text-sm font-medium text-gray-500">完了タスク</div>
+                <div className="text-sm font-medium text-gray-500">
+                  完了タスク
+                </div>
               </div>
               {dailyTasks.length > 0 && (
                 <p className="text-gray-600 font-medium">
@@ -1410,12 +1526,26 @@ export const DailyTaskScheduler = forwardRef<
           {dailyTasks.length === 0 && (
             <div className="text-center py-12 bg-white rounded-xl shadow-sm">
               <div className="mb-4 text-gray-400">
-                <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                <svg
+                  className="w-12 h-12 mx-auto"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
                 </svg>
               </div>
-              <p className="text-lg font-medium text-gray-700 mb-2">今日のタスクを設定しよう！</p>
-              <p className="text-sm text-gray-500">階層型タスクから追加できます</p>
+              <p className="text-lg font-medium text-gray-700 mb-2">
+                今日のタスクを設定しよう！
+              </p>
+              <p className="text-sm text-gray-500">
+                階層型タスクから追加できます
+              </p>
             </div>
           )}
         </div>

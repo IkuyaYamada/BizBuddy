@@ -20,6 +20,16 @@ frontend:
 	cd frontend && \
 	npm run dev
 
+# フロントエンドのビルド
+build-frontend:
+	@echo "Building frontend..."
+	cd frontend && \
+	npm run build
+
+# 本番用ビルド（フロントエンドのみ）
+build: build-frontend
+	@echo "Build completed!"
+
 # 初期セットアップ
 setup: setup-backend setup-frontend
 	@echo "Setup completed!"
